@@ -19,81 +19,163 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
-/* Custom Scrollbars */
+/* Ergonomic, wide Apple-style scrollbar for easy cursor targeting & dragging */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 128, 0.35) transparent;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border-muted);
   border-radius: var(--radius-full);
 }
 
+::-webkit-scrollbar-track:hover {
+  background: rgba(120, 120, 128, 0.06);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 128, 0.32);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color var(--transition-fast);
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-highlight);
+  background: rgba(120, 120, 128, 0.55);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-/* Glassmorphic Classes */
-.glass-panel {
+::-webkit-scrollbar-thumb:active {
+  background: rgba(120, 120, 128, 0.78);
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Dynamic Icon Scaling based on font-size preference */
+svg {
+  transform: scale(var(--icon-scale, 1));
+  transform-origin: center center;
+  transition: transform var(--transition-fast);
+}
+
+/* Translucency & Materials (Apple Vibrancy) */
+.apple-glass {
   background: var(--bg-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.glass-panel-heavy {
-  background: var(--bg-glass-heavy);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border-subtle);
-}
-
-.glass-dropdown {
+.apple-card {
   background: var(--bg-secondary);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-muted);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  transition: transform var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.apple-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.apple-button:hover {
+  background: var(--bg-hover);
+}
+
+.apple-button:active {
+  background: var(--bg-active);
+  transform: scale(0.98);
+}
+
+.apple-button-primary {
+  background: var(--accent-primary);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.apple-button-primary:hover {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
+
+.apple-button-primary:active {
+  background: var(--accent-active);
+  transform: scale(0.98);
 }
 
 /* Micro-animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 15px var(--accent-glow); }
-  50% { box-shadow: 0 0 25px var(--accent-glow), 0 0 5px var(--accent-primary); }
-}
-
-@keyframes streamBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
+/* Apple Intelligence Liquid Breathing Caret */
+@keyframes appleCaretBreathe {
+  0%, 100% {
+    opacity: 1;
+    transform: scaleY(1);
+    box-shadow: 0 0 6px var(--accent-primary);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scaleY(0.88);
+    box-shadow: 0 0 2px var(--accent-primary);
+  }
 }
 
 .stream-cursor {
   display: inline-block;
-  width: 7px;
-  height: 15px;
+  width: 3px;
+  height: 1.15em;
   background-color: var(--accent-primary);
-  vertical-align: middle;
+  vertical-align: -0.16em;
   margin-left: 3px;
   border-radius: 2px;
-  animation: streamBlink 0.9s infinite;
+  animation: appleCaretBreathe 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transition: opacity var(--transition-fast);
+}
+
+/* Subtle emerging stream micro-transition */
+@keyframes tokenGlideIn {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.prose.is-streaming {
+  animation: tokenGlideIn 0.15s ease-out;
 }
 
 /* Interactive Elements */
@@ -104,11 +186,15 @@ button {
   background: none;
   color: inherit;
   outline: none;
-  transition: all var(--transition-fast);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -119,23 +205,36 @@ input, textarea, select {
   border: 1px solid var(--border-subtle);
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-input:focus, textarea:focus, select:focus {
+input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-textarea), select:focus-visible {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 2px var(--accent-surface);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-/* Markdown Rendering Inside Assistant Bubbles */
+.chat-textarea,
+.chat-textarea:focus,
+.chat-textarea:focus-visible,
+.borderless-input,
+.borderless-input:focus,
+.borderless-input:focus-visible {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Apple Intelligence Prose / Editorial Layout */
 .prose {
-  font-size: inherit;
-  line-height: 1.68;
+  font-size: var(--chat-font-size, var(--text-base));
+  line-height: 1.65;
+  color: var(--text-primary);
   word-break: break-word;
 }
 
 .prose p {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 
 .prose p:last-child {
@@ -143,87 +242,121 @@ input:focus, textarea:focus, select:focus {
 }
 
 .prose h1, .prose h2, .prose h3, .prose h4 {
-  font-weight: 700;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
+  font-family: var(--font-sans);
+  font-weight: 600;
   color: var(--text-primary);
+  letter-spacing: -0.015em;
+  margin-top: 1.4rem;
+  margin-bottom: 0.5rem;
 }
 
-.prose h1 { font-size: 1.35rem; }
-.prose h2 { font-size: 1.2rem; }
-.prose h3 { font-size: 1.05rem; }
+.prose h1 { font-size: var(--text-xl); font-weight: 700; }
+.prose h2 { font-size: var(--text-lg); }
+.prose h3 { font-size: var(--text-base); font-weight: 600; }
 
 .prose ul, .prose ol {
-  margin-left: 1.25rem;
-  margin-bottom: 0.75rem;
+  margin-left: 1.3rem;
+  margin-bottom: 0.85rem;
 }
 
 .prose li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .prose code:not(pre code) {
   font-family: var(--font-mono);
   font-size: 0.88em;
-  background: var(--accent-surface);
-  color: var(--accent-primary);
+  background: var(--code-bg);
+  color: var(--text-primary);
   padding: 0.15rem 0.4rem;
   border-radius: var(--radius-xs);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--code-border);
 }
 
 .code-block-container {
   position: relative;
-  margin: 0.85rem 0;
+  margin: 1rem 0;
   background: var(--code-bg);
   border: 1px solid var(--code-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: var(--shadow-subtle);
 }
 
 .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.45rem 0.85rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.4rem 0.85rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--code-border);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
 .code-block-content {
-  padding: 0.95rem;
+  padding: 1rem;
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 0.86rem;
-  line-height: 1.55;
-  color: #e2e8f0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--code-text);
 }
 
 .prose blockquote {
   border-left: 3px solid var(--accent-primary);
-  padding-left: 0.85rem;
-  margin: 0.75rem 0;
+  padding-left: 0.9rem;
+  margin: 0.85rem 0;
   color: var(--text-secondary);
-  font-style: italic;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  margin: 1rem 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-secondary);
+  box-shadow: var(--shadow-subtle);
 }
 
 .prose table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.85rem 0;
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
+  table-layout: auto;
+  contain: paint;
 }
 
 .prose th, .prose td {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-subtle);
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--hairline);
   text-align: left;
+  line-height: 1.5;
 }
 
 .prose th {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.prose tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

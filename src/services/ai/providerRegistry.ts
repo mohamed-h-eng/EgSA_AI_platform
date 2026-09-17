@@ -24,6 +24,8 @@ class ProviderRegistry {
         return new CustomAPIProvider({
           endpointUrl: config.customEndpointUrl,
           apiKey: config.apiKey,
+          modelId: config.customModelId,
+          useProxy: config.useProxy ?? true,
         });
       }
     }

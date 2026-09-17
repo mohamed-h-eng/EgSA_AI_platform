@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SendIcon, StopCircleIcon, SparklesIcon, SlidersIcon } from '../ui/Icons';
+import { ArrowUpIcon, StopCircleIcon } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { DEFAULT_MODELS, DEFAULT_PERSONAS } from '../../constants/defaults';
+import { DEFAULT_PERSONAS } from '../../constants/defaults';
 
 export const ChatInput: React.FC = () => {
   const [input, setInput] = useState('');
@@ -14,16 +14,15 @@ export const ChatInput: React.FC = () => {
 
   const preferences = useSettingsStore((s) => s.preferences);
   const aiConfig = useSettingsStore((s) => s.aiConfig);
-  const openSettings = useSettingsStore((s) => s.openSettings);
 
-  const activeModel = DEFAULT_MODELS.find((m) => m.id === aiConfig.activeModelId) || DEFAULT_MODELS[0];
   const activePersona = DEFAULT_PERSONAS.find((p) => p.id === aiConfig.activePersonaId) || DEFAULT_PERSONAS[0];
 
   // Auto resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 160);
+      textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [input]);
 
@@ -38,6 +37,133 @@ export const ChatInput: React.FC = () => {
     }
   };
 
+  const handleSubmitRef = useRef(handleSubmit);
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
+
+  // Auto-focus chat input when user starts typing anywhere on the page,
+  // including Space, Enter, and Backspace, unless focusing on another input.
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. Skip if modifier keys are pressed (shortcuts like Ctrl+C, Cmd+V, Alt+Tab, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      // 2. If already focused on chat textarea, let native input handling proceed
+      if (document.activeElement === textarea) {
+        return;
+      }
+
+      // 3. Check active element to avoid hijacking other user inputs
+      const activeEl = document.activeElement;
+      if (activeEl instanceof HTMLElement) {
+        const tagName = activeEl.tagName.toLowerCase();
+        if (
+          tagName === 'input' ||
+          tagName === 'textarea' ||
+          tagName === 'select' ||
+          activeEl.isContentEditable ||
+          activeEl.getAttribute('role') === 'textbox' ||
+          activeEl.getAttribute('role') === 'combobox'
+        ) {
+          return;
+        }
+
+        // Do not hijack if inside an open dialog or modal
+        if (activeEl.closest('[role="dialog"]') || document.querySelector('[role="dialog"]')) {
+          return;
+        }
+
+        // If user is focused on a button and presses Enter or Space, preserve native button activation
+        if (tagName === 'button' && (e.key === 'Enter' || e.key === ' ')) {
+          return;
+        }
+      }
+
+      // 4. Do not hijack if settings modal is open in global state
+      if (useSettingsStore.getState().isSettingsOpen) {
+        return;
+      }
+
+      // 5. Handle Space key
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        textarea.focus();
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const prev = textarea.value;
+        const nextVal = prev.slice(0, start) + ' ' + prev.slice(end);
+        setInput(nextVal);
+        requestAnimationFrame(() => {
+          textarea.setSelectionRange(start + 1, start + 1);
+        });
+        return;
+      }
+
+      // 6. Handle Backspace key
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        textarea.focus();
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const prev = textarea.value;
+        if (start !== end) {
+          const nextVal = prev.slice(0, start) + prev.slice(end);
+          setInput(nextVal);
+          requestAnimationFrame(() => {
+            textarea.setSelectionRange(start, start);
+          });
+        } else if (start > 0) {
+          const nextVal = prev.slice(0, start - 1) + prev.slice(start);
+          setInput(nextVal);
+          requestAnimationFrame(() => {
+            textarea.setSelectionRange(start - 1, start - 1);
+          });
+        }
+        return;
+      }
+
+      // 7. Handle Enter key
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        textarea.focus();
+        const prefs = useSettingsStore.getState().preferences;
+        const streaming = useChatStore.getState().isStreaming;
+        if (prefs.sendOnEnter && !e.shiftKey && textarea.value.trim().length > 0 && !streaming) {
+          handleSubmitRef.current();
+        } else if (e.shiftKey || !prefs.sendOnEnter) {
+          const start = textarea.selectionStart ?? textarea.value.length;
+          const end = textarea.selectionEnd ?? textarea.value.length;
+          const prev = textarea.value;
+          const nextVal = prev.slice(0, start) + '\n' + prev.slice(end);
+          setInput(nextVal);
+          requestAnimationFrame(() => {
+            textarea.setSelectionRange(start + 1, start + 1);
+          });
+        }
+        return;
+      }
+
+      // 8. Handle any single printable character key
+      if (e.key.length === 1) {
+        textarea.focus();
+        const len = textarea.value.length;
+        textarea.setSelectionRange(len, len);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (preferences.sendOnEnter && e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -45,181 +171,116 @@ export const ChatInput: React.FC = () => {
     }
   };
 
+  const hasText = input.trim().length > 0;
+
   return (
     <div
       style={{
-        padding: '0.85rem 1.25rem 1.25rem',
-        maxWidth: '840px',
-        margin: '0 auto',
-        width: '100%',
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '0.75rem 1.25rem 1.25rem',
+        background: 'linear-gradient(to top, var(--bg-primary) 70%, transparent 100%)',
+        display: 'flex',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        zIndex: 20,
       }}
     >
       <div
-        className="glass-panel"
         style={{
-          borderRadius: 'var(--radius-lg)',
-          padding: '0.65rem 0.85rem',
-          boxShadow: 'var(--shadow-md)',
-          border: '1px solid var(--border-muted)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.5rem',
-          transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+          width: '100%',
+          maxWidth: 'var(--content-max-width)',
+          pointerEvents: 'auto',
         }}
       >
-        {/* Text Area */}
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={`Message ${activePersona.name} (${activeModel.name})...`}
-          rows={1}
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: 'none',
-            resize: 'none',
-            outline: 'none',
-            fontSize: 'var(--chat-font-size, var(--text-base))',
-            color: 'var(--text-primary)',
-            padding: '0.35rem 0.45rem',
-            maxHeight: '180px',
-            minHeight: '26px',
-            lineHeight: 1.5,
-          }}
-        />
-
-        {/* Input Bar Controls */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingTop: '0.35rem',
-            borderTop: '1px solid var(--border-subtle)',
+            alignItems: 'flex-end',
+            gap: '0.5rem',
+            backgroundColor: 'var(--bg-glass-heavy)',
+            backdropFilter: 'blur(28px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+            border: '1px solid var(--hairline)',
+            borderRadius: '24px',
+            padding: '0.45rem 0.55rem 0.45rem 1.15rem',
+            boxShadow: 'var(--shadow-md)',
+            transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
           }}
         >
-          {/* Quick Model and Persona Badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => openSettings('model')}
-              title="Click to customize AI model & parameters"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                fontSize: 'var(--text-xs)',
-                padding: '0.25rem 0.6rem',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--accent-surface)',
-                color: 'var(--accent-primary)',
-                border: '1px solid var(--border-subtle)',
-                fontWeight: 500,
-              }}
-            >
-              <SparklesIcon size={13} />
-              <span>{activeModel.name}</span>
-            </button>
+          {/* Multiline auto-expanding textarea */}
+          <textarea
+            ref={textareaRef}
+            className="chat-textarea"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={`Ask ${activePersona.name}...`}
+            rows={1}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              resize: 'none',
+              outline: 'none',
+              boxShadow: 'none',
+              fontSize: 'var(--chat-font-size, var(--text-base))',
+              color: 'var(--text-primary)',
+              padding: '0.35rem 0',
+              maxHeight: '160px',
+              minHeight: '26px',
+              lineHeight: 1.5,
+              fontFamily: 'inherit',
+            }}
+          />
 
+          {/* Action Button: Send or Stop */}
+          {isStreaming ? (
             <button
-              onClick={() => openSettings('personas')}
-              title="Active Persona Preset"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                fontSize: 'var(--text-xs)',
-                padding: '0.25rem 0.6rem',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <span>{activePersona.avatar}</span>
-              <span>{activePersona.name}</span>
-            </button>
-          </div>
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            <button
-              onClick={() => openSettings('model')}
-              title="Fine-tune temperature & parameters"
+              onClick={stopGeneration}
               style={{
                 width: '32px',
                 height: '32px',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: '50%',
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--text-muted)',
-                background: 'transparent',
+                flexShrink: 0,
+                cursor: 'pointer',
+                transition: 'transform var(--transition-fast), opacity var(--transition-fast)',
               }}
+              title="Stop Generation"
             >
-              <SlidersIcon size={16} />
+              <StopCircleIcon size={18} />
             </button>
-
-            {isStreaming ? (
-              <button
-                onClick={stopGeneration}
-                title="Stop generation"
-                style={{
-                  height: '34px',
-                  padding: '0 0.85rem',
-                  borderRadius: 'var(--radius-full)',
-                  background: 'var(--danger)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  fontSize: 'var(--text-xs)',
-                  fontWeight: 600,
-                  boxShadow: '0 0 12px rgba(239, 68, 68, 0.4)',
-                }}
-              >
-                <StopCircleIcon size={15} />
-                <span>Stop</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => handleSubmit()}
-                disabled={!input.trim()}
-                title="Send message (Enter)"
-                style={{
-                  width: '34px',
-                  height: '34px',
-                  borderRadius: 'var(--radius-full)',
-                  background: input.trim() ? 'var(--accent-gradient)' : 'var(--bg-tertiary)',
-                  color: input.trim() ? '#ffffff' : 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: input.trim() ? 'pointer' : 'not-allowed',
-                  boxShadow: input.trim() ? 'var(--shadow-glow)' : 'none',
-                }}
-              >
-                <SendIcon size={16} />
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              onClick={() => handleSubmit()}
+              disabled={!hasText}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: hasText ? 'var(--accent-primary)' : 'var(--bg-hover)',
+                color: hasText ? '#ffffff' : 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                cursor: hasText ? 'pointer' : 'default',
+                transition: 'background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast)',
+                transform: hasText ? 'scale(1)' : 'scale(0.96)',
+              }}
+              title="Send Message"
+            >
+              <ArrowUpIcon size={17} />
+            </button>
+          )}
         </div>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '0.4rem',
-          padding: '0 0.5rem',
-          fontSize: '0.72rem',
-          color: 'var(--text-muted)',
-        }}
-      >
-        <span>EgSA AI Interface • Modular & Extensible Architecture</span>
-        <span>{preferences.sendOnEnter ? 'Press Enter to send, Shift+Enter for new line' : 'Press button to send'}</span>
       </div>
     </div>
   );

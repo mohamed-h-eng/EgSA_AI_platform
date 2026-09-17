@@ -52,8 +52,21 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
     set((state) => ({
       preferences: { ...state.preferences, fontSize },
     }));
-    const sizeMap = { sm: '14px', md: '15px', lg: '17px' };
-    document.documentElement.style.setProperty('--chat-font-size', sizeMap[fontSize]);
+    const scaleMap: Record<
+      string,
+      { root: string; chat: string; iconScale: string; headerHeight: string; sidebarWidth: string }
+    > = {
+      sm: { root: '14px', chat: '13.5px', iconScale: '0.88', headerHeight: '48px', sidebarWidth: '245px' },
+      md: { root: '16px', chat: '15px', iconScale: '1.0', headerHeight: '52px', sidebarWidth: '260px' },
+      lg: { root: '18px', chat: '17.5px', iconScale: '1.14', headerHeight: '58px', sidebarWidth: '280px' },
+    };
+    const config = scaleMap[fontSize] || scaleMap.md;
+    document.documentElement.style.fontSize = config.root;
+    document.documentElement.style.setProperty('--chat-font-size', config.chat);
+    document.documentElement.style.setProperty('--icon-scale', config.iconScale);
+    document.documentElement.style.setProperty('--header-height', config.headerHeight);
+    document.documentElement.style.setProperty('--sidebar-width', config.sidebarWidth);
+    document.documentElement.setAttribute('data-font-size', fontSize);
   },
 
   setChatDensity: (chatDensity) => {

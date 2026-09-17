@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import {
-  PlusIcon,
+  SquarePenIcon,
   TrashIcon,
   SearchIcon,
   SettingsIcon,
   DownloadIcon,
   MessageSquareIcon,
-  SparklesIcon,
-  XIcon
+  PanelLeftIcon,
+  SunIcon,
+  MoonIcon,
 } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { DeleteChatModal } from '../chat/DeleteChatModal';
+import { Logo } from '../ui/Logo';
 
 export const Sidebar: React.FC = () => {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [sessionToDelete, setSessionToDelete] = useState<{ id: string; title: string } | null>(null);
 
   const sessions = useChatStore((s) => s.sessions);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
@@ -30,6 +34,18 @@ export const Sidebar: React.FC = () => {
   const exportConversation = useChatStore((s) => s.exportConversation);
 
   const openSettings = useSettingsStore((s) => s.openSettings);
+  const preferences = useSettingsStore((s) => s.preferences);
+  const setTheme = useSettingsStore((s) => s.setTheme);
+
+  const isDarkMode =
+    preferences.theme === 'dark' ||
+    (preferences.theme === 'system' &&
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const toggleTheme = () => {
+    setTheme(isDarkMode ? 'light' : 'dark');
+  };
 
   const filteredSessions = sessions.filter((s) =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -53,124 +69,110 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className="glass-panel"
       style={{
         width: 'var(--sidebar-width)',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderRight: '1px solid var(--border-subtle)',
-        background: 'var(--bg-secondary)',
+        borderRight: '1px solid var(--hairline)',
+        backgroundColor: 'var(--bg-sidebar)',
         flexShrink: 0,
         zIndex: 20,
-        transition: 'all var(--transition-normal)',
+        userSelect: 'none',
       }}
     >
-      {/* Top Header */}
+      {/* macOS Sidebar Header Toolbar */}
       <div
         style={{
-          padding: '1.15rem 1rem 0.85rem',
+          height: 'var(--header-height)',
+          padding: '0 0.85rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid var(--border-subtle)',
+          borderBottom: '1px solid var(--hairline)',
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--accent-gradient)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              boxShadow: 'var(--shadow-glow)',
-            }}
-          >
-            <SparklesIcon size={18} />
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', overflow: 'hidden' }}>
+          <Logo size="sm" style={{ height: '24px', flexShrink: 0 }} />
           <div>
-            <h2 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, letterSpacing: '0.02em' }}>
-              EgSA Space AI
+            <h2
+              style={{
+                fontSize: 'var(--text-sm)',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.01em',
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              EgSA Intelligence
             </h2>
-            <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-              Mission Operations v2.0
-            </p>
           </div>
         </div>
 
-        <button
-          onClick={toggleSidebar}
-          style={{
-            color: 'var(--text-muted)',
-            padding: '0.25rem',
-            borderRadius: 'var(--radius-xs)',
-          }}
-          title="Close sidebar"
-        >
-          <XIcon size={16} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+          {/* New Chat Action */}
+          <button
+            onClick={() => createNewSession()}
+            className="apple-button"
+            style={{
+              width: '28px',
+              height: '28px',
+              padding: 0,
+              borderRadius: 'var(--radius-xs)',
+              color: 'var(--text-secondary)',
+            }}
+            title="New Conversation (Cmd+N)"
+          >
+            <SquarePenIcon size={16} />
+          </button>
+
+          {/* Sidebar Toggle Button */}
+          <button
+            onClick={toggleSidebar}
+            className="apple-button"
+            style={{
+              width: '28px',
+              height: '28px',
+              padding: 0,
+              borderRadius: 'var(--radius-xs)',
+              color: 'var(--text-secondary)',
+            }}
+            title="Collapse Sidebar"
+          >
+            <PanelLeftIcon size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* New Chat Button */}
-      <div style={{ padding: '0.85rem 1rem 0.5rem' }}>
-        <button
-          onClick={() => createNewSession()}
-          style={{
-            width: '100%',
-            padding: '0.65rem 0.85rem',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--accent-surface)',
-            color: 'var(--accent-primary)',
-            border: '1px solid var(--accent-glow)',
-            fontWeight: 600,
-            fontSize: 'var(--text-sm)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            transition: 'all var(--transition-fast)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--accent-primary)';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'var(--accent-surface)';
-            e.currentTarget.style.color = 'var(--accent-primary)';
-          }}
-        >
-          <PlusIcon size={16} />
-          <span>New Mission Chat</span>
-        </button>
-      </div>
-
-      {/* Search Conversations */}
-      <div style={{ padding: '0.4rem 1rem' }}>
+      {/* Search Input Field */}
+      <div style={{ padding: '0.65rem 0.85rem 0.45rem' }}>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.4rem 0.65rem',
+            gap: '0.45rem',
+            padding: '0.35rem 0.6rem',
             borderRadius: 'var(--radius-sm)',
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-subtle)',
+            backgroundColor: 'var(--bg-tertiary)',
+            border: '1px solid transparent',
+            transition: 'border-color var(--transition-fast), background-color var(--transition-fast)',
           }}
         >
-          <SearchIcon size={14} style={{ color: 'var(--text-muted)' }} />
+          <SearchIcon size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             type="text"
+            className="borderless-input"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search conversations..."
+            placeholder="Search"
             style={{
               width: '100%',
               background: 'transparent',
               border: 'none',
+              outline: 'none',
+              boxShadow: 'none',
               fontSize: 'var(--text-xs)',
               color: 'var(--text-primary)',
               padding: 0,
@@ -179,164 +181,229 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Sessions List */}
+      {/* Conversations List */}
       <div
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '0.5rem 0.75rem',
+          padding: '0.35rem 0.5rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.25rem',
+          gap: '2px',
         }}
       >
         <div
           style={{
-            fontSize: '0.7rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: 'var(--text-muted)',
-            padding: '0.25rem 0.45rem',
+            fontSize: '0.6875rem',
             fontWeight: 600,
+            color: 'var(--text-muted)',
+            padding: '0.4rem 0.5rem 0.2rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
           }}
         >
-          Conversations ({filteredSessions.length})
+          Recent
         </div>
 
-        {filteredSessions.map((session) => {
-          const isActive = session.id === activeSessionId;
-          const isEditing = editingSessionId === session.id;
+        {filteredSessions.length === 0 ? (
+          <div
+            style={{
+              padding: '1.5rem 0.75rem',
+              textAlign: 'center',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+            }}
+          >
+            No conversations found
+          </div>
+        ) : (
+          filteredSessions.map((session) => {
+            const isActive = session.id === activeSessionId;
+            const isEditing = editingSessionId === session.id;
 
-          return (
-            <div
-              key={session.id}
-              onClick={() => selectSession(session.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.55rem 0.65rem',
-                borderRadius: 'var(--radius-sm)',
-                background: isActive ? 'var(--accent-surface)' : 'transparent',
-                border: `1px solid ${isActive ? 'var(--accent-glow)' : 'transparent'}`,
-                color: isActive ? 'var(--accent-text)' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'var(--bg-tertiary)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', overflow: 'hidden', flex: 1 }}>
-                <MessageSquareIcon size={15} style={{ color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)', flexShrink: 0 }} />
-
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editingTitle}
-                    autoFocus
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={() => handleSaveRename(session.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveRename(session.id);
-                      if (e.key === 'Escape') setEditingSessionId(null);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
+            return (
+              <div
+                key={session.id}
+                onClick={() => selectSession(session.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.42rem 0.55rem',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: isActive ? 'var(--bg-active)' : 'transparent',
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  transition: 'background-color var(--transition-fast), color var(--transition-fast)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    overflow: 'hidden',
+                    flex: 1,
+                  }}
+                >
+                  <MessageSquareIcon
+                    size={14}
                     style={{
-                      fontSize: 'var(--text-xs)',
-                      padding: '0.1rem 0.35rem',
-                      width: '90%',
-                      background: 'var(--bg-primary)',
-                      color: 'var(--text-primary)',
+                      color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                      flexShrink: 0,
                     }}
                   />
-                ) : (
-                  <span
-                    onDoubleClick={(e) => handleStartRename(session.id, session.title, e)}
-                    style={{
-                      fontSize: 'var(--text-xs)',
-                      fontWeight: isActive ? 600 : 400,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                    title="Double-click to rename"
-                  >
-                    {session.title}
-                  </span>
-                )}
-              </div>
 
-              {/* Action Icons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', opacity: isActive ? 1 : 0.6 }}>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    exportConversation(session.id, 'markdown');
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      autoFocus
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => handleSaveRename(session.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveRename(session.id);
+                        if (e.key === 'Escape') setEditingSessionId(null);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        fontSize: 'var(--text-xs)',
+                        padding: '0.1rem 0.3rem',
+                        width: '90%',
+                        backgroundColor: 'var(--bg-canvas)',
+                        color: 'var(--text-primary)',
+                        borderRadius: 'var(--radius-xs)',
+                        border: '1px solid var(--accent-primary)',
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onDoubleClick={(e) => handleStartRename(session.id, session.title, e)}
+                      style={{
+                        fontSize: 'var(--text-xs)',
+                        fontWeight: isActive ? 500 : 400,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      }}
+                      title="Double-click to rename"
+                    >
+                      {session.title}
+                    </span>
+                  )}
+                </div>
+
+                {/* Subtle Hover Actions */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.15rem',
+                    opacity: isActive ? 1 : 0.4,
+                    flexShrink: 0,
                   }}
-                  title="Export Markdown"
-                  style={{ padding: '0.2rem', color: 'var(--text-muted)' }}
                 >
-                  <DownloadIcon size={13} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteSession(session.id);
-                  }}
-                  title="Delete chat"
-                  style={{ padding: '0.2rem', color: 'var(--text-muted)' }}
-                >
-                  <TrashIcon size={13} />
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportConversation(session.id, 'markdown');
+                    }}
+                    title="Export Markdown"
+                    className="apple-button"
+                    style={{
+                      padding: '0.15rem',
+                      width: '20px',
+                      height: '20px',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <DownloadIcon size={12} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSessionToDelete({ id: session.id, title: session.title });
+                    }}
+                    title="Delete Conversation"
+                    className="apple-button"
+                    style={{
+                      padding: '0.15rem',
+                      width: '20px',
+                      height: '20px',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <TrashIcon size={12} />
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
-      {/* Bottom Footer Actions */}
+      {/* macOS Sidebar Footer */}
       <div
         style={{
-          padding: '0.75rem 1rem',
-          borderTop: '1px solid var(--border-subtle)',
+          padding: '0.55rem 0.85rem',
+          borderTop: '1px solid var(--hairline)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexShrink: 0,
         }}
       >
         <button
           onClick={() => openSettings()}
+          className="apple-button"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
             fontSize: 'var(--text-xs)',
             color: 'var(--text-secondary)',
             padding: '0.35rem 0.5rem',
-            borderRadius: 'var(--radius-xs)',
+            gap: '0.45rem',
           }}
+          title="Settings"
         >
-          <SettingsIcon size={16} />
-          <span>Customize Platform</span>
+          <SettingsIcon size={14} />
+          <span>Settings</span>
         </button>
 
-        <span
+        {/* Dark Mode Toggle Button */}
+        <button
+          onClick={toggleTheme}
+          className="apple-button"
           style={{
-            fontSize: '0.65rem',
-            padding: '0.15rem 0.4rem',
+            width: '28px',
+            height: '28px',
+            padding: 0,
             borderRadius: 'var(--radius-xs)',
-            background: 'var(--bg-tertiary)',
-            color: 'var(--accent-primary)',
-            border: '1px solid var(--border-subtle)',
+            color: 'var(--text-secondary)',
           }}
+          title={isDarkMode ? 'Switch to Light Appearance' : 'Switch to Dark Appearance'}
         >
-          v2.0
-        </span>
+          {isDarkMode ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+        </button>
       </div>
+
+      {/* Verification Modal for Chat Deletion */}
+      <DeleteChatModal
+        isOpen={sessionToDelete !== null}
+        chatTitle={sessionToDelete?.title || ''}
+        onConfirm={() => {
+          if (sessionToDelete) {
+            deleteSession(sessionToDelete.id);
+            setSessionToDelete(null);
+          }
+        }}
+        onCancel={() => setSessionToDelete(null)}
+      />
     </aside>
   );
 };

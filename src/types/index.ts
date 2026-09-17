@@ -57,7 +57,7 @@ export interface AIModel {
   isAvailable: boolean;
 }
 
-export type ThemeMode = 'egsa-cosmic' | 'dark' | 'light' | 'cyberpunk';
+export type ThemeMode = 'system' | 'light' | 'dark';
 export type FontSizeOption = 'sm' | 'md' | 'lg';
 export type ChatDensity = 'comfortable' | 'compact';
 export type BubbleStyle = 'modern' | 'minimal' | 'bordered';
@@ -83,6 +83,9 @@ export interface AIConfiguration {
   providerType: 'mock' | 'custom-api' | 'openai-compatible';
   customEndpointUrl?: string;
   apiKey?: string;
+  customModelId?: string;
+  providerPreset?: string;
+  useProxy?: boolean;
 }
 
 export interface StreamChunk {

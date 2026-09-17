@@ -1,6 +1,7 @@
 import { createStore } from './createStore';
 import type { ChatMessage, ConversationSession, StreamChunk } from '../types';
 import { providerRegistry } from '../services/ai/providerRegistry';
+import { SmoothStreamBuffer } from '../services/ai/streamBuffer';
 import { useSettingsStore } from './settingsStore';
 import { DEFAULT_PERSONAS } from '../constants/defaults';
 
@@ -202,6 +203,33 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       content: m.content,
     }));
 
+    const smoothBuffer = new SmoothStreamBuffer((displayedContent, isDone, stats) => {
+      set((state) => {
+        const active = state.sessions.find((s) => s.id === activeSessionId);
+        if (!active) return {};
+
+        const msgs = active.messages.map((msg) => {
+          if (msg.id === assistantMessageId) {
+            return {
+              ...msg,
+              content: displayedContent,
+              status: isDone ? 'complete' : 'streaming',
+              stats: stats || msg.stats,
+            } as ChatMessage;
+          }
+          return msg;
+        });
+
+        return {
+          sessions: state.sessions.map((s) =>
+            s.id === activeSessionId ? { ...s, messages: msgs } : s
+          ),
+          isStreaming: !isDone,
+          abortStream: isDone ? null : state.abortStream,
+        };
+      });
+    });
+
     try {
       const abort = await provider.generateStream(
         {
@@ -212,31 +240,10 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
           maxTokens: settings.aiConfig.maxTokens,
         },
         (chunk: StreamChunk) => {
-          set((state) => {
-            const active = state.sessions.find((s) => s.id === activeSessionId);
-            if (!active) return {};
-
-            const msgs = active.messages.map((msg) => {
-              if (msg.id === assistantMessageId) {
-                return {
-                  ...msg,
-                  content: msg.content + chunk.content,
-                  status: chunk.done ? 'complete' : 'streaming',
-                  stats: chunk.stats || msg.stats,
-                } as ChatMessage;
-              }
-              return msg;
-            });
-
-            return {
-              sessions: state.sessions.map((s) =>
-                s.id === activeSessionId ? { ...s, messages: msgs } : s
-              ),
-              isStreaming: !chunk.done,
-            };
-          });
+          smoothBuffer.append(chunk.content, chunk.done, chunk.stats);
         },
         (err: Error) => {
+          smoothBuffer.abort();
           set((state) => {
             const active = state.sessions.find((s) => s.id === activeSessionId);
             if (!active) return { isStreaming: false, abortStream: null };
@@ -264,9 +271,15 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
         }
       );
 
-      set({ abortStream: abort });
+      const combinedAbort = () => {
+        abort();
+        smoothBuffer.flushAndStop();
+      };
+
+      set({ abortStream: combinedAbort });
     } catch (err: any) {
       console.error('Failed to launch LLM stream', err);
+      smoothBuffer.abort();
       set({ isStreaming: false, abortStream: null });
     }
   },

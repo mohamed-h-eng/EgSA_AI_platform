@@ -1,12 +1,18 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { MessageItem } from './MessageItem';
 import { DEFAULT_PERSONAS } from '../../constants/defaults';
-import { SparklesIcon } from '../ui/Icons';
+import { ArrowDownIcon } from '../ui/Icons';
+import { Logo } from '../ui/Logo';
 
 export const MessageList: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+  const isUserBrowsingUpRef = useRef(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
+  const touchStartYRef = useRef(0);
 
   const sessions = useChatStore((s) => s.sessions);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
@@ -17,94 +23,227 @@ export const MessageList: React.FC = () => {
   const aiConfig = useSettingsStore((s) => s.aiConfig);
 
   const currentSession = sessions.find((s) => s.id === activeSessionId);
-  const messages = currentSession?.messages || [];
+  const messages = useMemo(() => currentSession?.messages || [], [currentSession?.messages]);
+  const prevMessageCountRef = useRef(messages.length);
 
   const activePersona = DEFAULT_PERSONAS.find((p) => p.id === aiConfig.activePersonaId) || DEFAULT_PERSONAS[0];
 
-  // Auto-scroll to bottom on new messages or stream chunks
+  const autoScrollToBottom = () => {
+    if (!scrollContainerRef.current) return;
+    isProgrammaticScrollRef.current = true;
+    scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    lastScrollTopRef.current = scrollContainerRef.current.scrollTop;
+    requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false;
+    });
+  };
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+
+    if (isProgrammaticScrollRef.current) {
+      lastScrollTopRef.current = scrollContainerRef.current.scrollTop;
+      return;
+    }
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const delta = scrollTop - lastScrollTopRef.current;
+    const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+
+    // Update last known scrollTop
+    lastScrollTopRef.current = scrollTop;
+
+    // User scrolled UP (even by a fraction of a pixel) -> detach IMMEDIATELY!
+    if (delta < -0.5) {
+      isUserBrowsingUpRef.current = true;
+      setShowScrollBottomBtn(true);
+      return;
+    }
+
+    // User intentionally scrolled back DOWN to the very bottom:
+    if (delta >= 0 && distanceFromBottom <= 10) {
+      isUserBrowsingUpRef.current = false;
+      setShowScrollBottomBtn(false);
+    } else if (distanceFromBottom > 30) {
+      setShowScrollBottomBtn(true);
+    }
+  };
+
+  // Immediate detachment on upward wheel scroll (zero latency)
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.deltaY < 0) {
+      isProgrammaticScrollRef.current = false;
+      isUserBrowsingUpRef.current = true;
+      setShowScrollBottomBtn(true);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      touchStartYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length > 0) {
+      const currentY = e.touches[0].clientY;
+      // Dragging down moves content down, i.e. scrolling up to older messages
+      if (currentY - touchStartYRef.current > 6) {
+        isProgrammaticScrollRef.current = false;
+        isUserBrowsingUpRef.current = true;
+        setShowScrollBottomBtn(true);
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (['ArrowUp', 'PageUp', 'Home'].includes(e.key)) {
+      isProgrammaticScrollRef.current = false;
+      isUserBrowsingUpRef.current = true;
+      setShowScrollBottomBtn(true);
+    }
+  };
+
+  // Reset scroll lock when a new message is appended (e.g. user sends inquiry)
   useEffect(() => {
-    if (preferences.autoScroll && scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+    if (messages.length > prevMessageCountRef.current) {
+      isUserBrowsingUpRef.current = false;
+      requestAnimationFrame(() => {
+        setShowScrollBottomBtn(false);
+        autoScrollToBottom();
+      });
+    }
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length]);
+
+  // Reset scroll position when switching sessions
+  useEffect(() => {
+    isUserBrowsingUpRef.current = false;
+    requestAnimationFrame(() => {
+      setShowScrollBottomBtn(false);
+      autoScrollToBottom();
+    });
+  }, [activeSessionId]);
+
+  // Auto-scroll during streaming ONLY when user is at the bottom
+  useEffect(() => {
+    if (isUserBrowsingUpRef.current) return;
+
+    if (preferences.autoScroll) {
+      autoScrollToBottom();
     }
   }, [messages, isStreaming, preferences.autoScroll]);
 
-  const hasOnlyGreeting = messages.length <= 1;
+  const scrollToBottom = () => {
+    if (!scrollContainerRef.current) return;
+    isProgrammaticScrollRef.current = true;
+    isUserBrowsingUpRef.current = false;
+    setShowScrollBottomBtn(false);
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+      if (scrollContainerRef.current) {
+        lastScrollTopRef.current = scrollContainerRef.current.scrollTop;
+      }
+    }, 450);
+  };
+
+  const isEmptySession = messages.length === 0;
 
   return (
     <div
-      ref={scrollContainerRef}
       style={{
         flex: 1,
-        overflowY: 'auto',
-        padding: '1.25rem 1.5rem',
-        scrollBehavior: 'smooth',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        overflow: 'hidden',
       }}
     >
-      <div style={{ maxWidth: '840px', margin: '0 auto', width: '100%' }}>
-        {/* Starter Prompts / Welcome Hero if conversation just started */}
-        {hasOnlyGreeting && (
-          <div
-            style={{
-              padding: '1.5rem 0 2rem',
-              animation: 'fadeIn 0.3s ease-out',
-            }}
-          >
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem 1.5rem 6rem',
+          outline: 'none',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 'var(--content-max-width)',
+            margin: '0 auto',
+            width: '100%',
+          }}
+        >
+          {/* Apple HIG Welcome Hero if conversation has no messages */}
+          {isEmptySession ? (
             <div
               style={{
+                minHeight: '60vh',
                 display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
                 alignItems: 'center',
-                gap: '0.75rem',
-                marginBottom: '1rem',
+                textAlign: 'center',
+                padding: '2rem 1rem',
+                animation: 'fadeIn 0.3s ease-out',
               }}
             >
+              {/* Official EgSA Agency Logo */}
               <div
                 style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--accent-surface)',
-                  border: '1px solid var(--border-muted)',
+                  marginBottom: '1.25rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.75rem',
                 }}
               >
-                {activePersona.avatar}
+                <Logo size="hero" style={{ height: '76px' }} />
               </div>
-              <div>
-                <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700 }}>
-                  {activePersona.name}
-                </h1>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                  {activePersona.tagline}
-                </p>
-              </div>
-            </div>
 
-            <div style={{ marginTop: '1.5rem' }}>
-              <div
+              <h1
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-muted)',
-                  marginBottom: '0.75rem',
+                  fontSize: 'var(--text-2xl)',
                   fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
+                  letterSpacing: '-0.025em',
+                  color: 'var(--text-primary)',
+                  marginBottom: '0.4rem',
                 }}
               >
-                <SparklesIcon size={14} />
-                <span>Suggested Starter Inquiries</span>
-              </div>
+                EgSA Intelligence
+              </h1>
 
+              <p
+                style={{
+                  fontSize: 'var(--text-base)',
+                  color: 'var(--text-secondary)',
+                  maxWidth: '480px',
+                  lineHeight: 1.5,
+                  marginBottom: '2.5rem',
+                }}
+              >
+                Orbital telemetry, mission flight dynamics, and aerospace systems analysis.
+              </p>
+
+              {/* Starter Suggestions */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                  gap: '0.75rem',
+                  width: '100%',
+                  maxWidth: '560px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
                 }}
               >
                 {activePersona.starterPrompts.map((prompt, idx) => (
@@ -112,55 +251,114 @@ export const MessageList: React.FC = () => {
                     key={idx}
                     onClick={() => sendMessage(prompt)}
                     disabled={isStreaming}
-                    className="glass-panel"
+                    className="apple-card"
                     style={{
-                      padding: '0.85rem 1rem',
-                      borderRadius: 'var(--radius-md)',
+                      padding: '0.75rem 1rem',
                       textAlign: 'left',
                       fontSize: 'var(--text-sm)',
                       color: 'var(--text-secondary)',
-                      lineHeight: 1.45,
+                      lineHeight: 1.4,
                       cursor: 'pointer',
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '0.5rem',
-                      transition: 'all var(--transition-fast)',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                      e.currentTarget.style.borderColor = 'var(--border-muted)';
                       e.currentTarget.style.color = 'var(--text-primary)';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.borderColor = 'var(--border-subtle)';
                       e.currentTarget.style.color = 'var(--text-secondary)';
-                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    <span style={{ color: 'var(--accent-primary)', flexShrink: 0 }}>→</span>
                     <span>{prompt}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>↗</span>
                   </button>
                 ))}
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: preferences.chatDensity === 'compact' ? '1rem' : '1.75rem',
+              }}
+            >
+              {messages.map((message, index) => {
+                const isLatestAssistant =
+                  message.role === 'assistant' &&
+                  index === messages.length - 1;
 
-        {/* Render Message List */}
-        {messages.map((message, index) => {
-          const isLatestAssistant =
-            message.role === 'assistant' &&
-            index === messages.length - 1;
-
-          return (
-            <MessageItem
-              key={message.id}
-              message={message}
-              isLatestAssistant={isLatestAssistant}
-            />
-          );
-        })}
+                return (
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    isLatestAssistant={isLatestAssistant}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Floating "Return to Bottom" Button Centered in Chat Layout */}
+      {showScrollBottomBtn && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 35,
+            pointerEvents: 'none',
+            animation: 'slideDown 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          <button
+            onClick={scrollToBottom}
+            className="apple-button"
+            style={{
+              pointerEvents: 'auto',
+              width: '36px',
+              height: '36px',
+              padding: 0,
+              borderRadius: '50%',
+              backgroundColor: 'var(--bg-glass-heavy)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+              border: '1px solid var(--hairline)',
+              boxShadow: 'var(--shadow-md)',
+              color: 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+            title="Scroll to latest response"
+          >
+            <ArrowDownIcon size={16} style={{ color: 'var(--accent-primary)' }} />
+            {isStreaming && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '4px',
+                  right: '4px',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--accent-primary)',
+                  display: 'inline-block',
+                  animation: 'appleCaretBreathe 0.9s infinite',
+                }}
+              />
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

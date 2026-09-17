@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import type { ChatMessage } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { CopyIcon, CheckIcon, RefreshCwIcon, UserIcon, BotIcon } from '../ui/Icons';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { CopyIcon, CheckIcon, RefreshCwIcon, PencilIcon, ArrowUpIcon } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
-import { DEFAULT_PERSONAS } from '../../constants/defaults';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -13,15 +11,15 @@ interface MessageItemProps {
 
 export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssistant }) => {
   const [copied, setCopied] = useState(false);
-  const [showStats, setShowStats] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content);
 
-  const preferences = useSettingsStore((s) => s.preferences);
-  const aiConfig = useSettingsStore((s) => s.aiConfig);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const regenerateResponse = useChatStore((s) => s.regenerateResponse);
+  const sendMessage = useChatStore((s) => s.sendMessage);
 
   const isUser = message.role === 'user';
-  const persona = DEFAULT_PERSONAS.find((p) => p.id === aiConfig.activePersonaId);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -29,194 +27,302 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getBubbleStyle = () => {
-    if (isUser) {
-      return {
-        background: 'var(--msg-user-bg)',
-        color: 'var(--msg-user-text)',
-        borderRadius: preferences.bubbleStyle === 'minimal' ? 'var(--radius-sm)' : 'var(--radius-md) var(--radius-sm) var(--radius-xs) var(--radius-md)',
-        boxShadow: 'var(--shadow-sm)',
-      };
-    }
-
-    switch (preferences.bubbleStyle) {
-      case 'minimal':
-        return {
-          background: 'transparent',
-          borderLeft: '2px solid var(--accent-primary)',
-          borderRadius: 0,
-          paddingLeft: '0.85rem',
-        };
-      case 'bordered':
-        return {
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-muted)',
-          borderRadius: 'var(--radius-md)',
-        };
-      case 'modern':
-      default:
-        return {
-          background: 'var(--msg-assistant-bg)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-xs) var(--radius-md) var(--radius-md) var(--radius-md)',
-          boxShadow: 'var(--shadow-sm)',
-        };
-    }
+  const handleStartEdit = () => {
+    setEditedContent(message.content);
+    setIsEditing(true);
   };
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: isUser ? 'row-reverse' : 'row',
-        gap: '0.85rem',
-        padding: preferences.chatDensity === 'compact' ? '0.45rem 0' : '0.85rem 0',
-        animation: 'fadeIn 0.25s ease-out forwards',
-        alignItems: 'flex-start',
-      }}
-    >
-      {/* Avatar */}
-      <div
-        style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: 'var(--radius-sm)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          background: isUser ? 'var(--accent-surface)' : 'var(--bg-tertiary)',
-          border: `1px solid ${isUser ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
-          color: isUser ? 'var(--accent-primary)' : 'var(--text-primary)',
-          fontSize: '1.15rem',
-          userSelect: 'none',
-        }}
-        title={isUser ? 'You' : persona?.name || 'AI Assistant'}
-      >
-        {isUser ? <UserIcon size={18} /> : persona?.avatar || <BotIcon size={18} />}
-      </div>
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedContent(message.content);
+  };
 
-      {/* Content Container */}
-      <div style={{ maxWidth: '85%', minWidth: '120px' }}>
-        {/* Header (Author, Model, Time) */}
+  const handleSendEdited = () => {
+    if (!editedContent.trim() || isStreaming) return;
+    sendMessage(editedContent.trim());
+    setIsEditing(false);
+  };
+
+  if (isUser) {
+    if (isEditing) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            width: '100%',
+            animation: 'fadeIn 0.18s ease-out forwards',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '85%',
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--accent-primary)',
+              borderRadius: '16px',
+              padding: '0.75rem',
+              boxShadow: 'var(--shadow-md)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+            }}
+          >
+            <textarea
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendEdited();
+                } else if (e.key === 'Escape') {
+                  handleCancelEdit();
+                }
+              }}
+              autoFocus
+              rows={Math.min(Math.max(editedContent.split('\n').length, 2), 8)}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                resize: 'vertical',
+                color: 'var(--text-primary)',
+                fontSize: 'var(--chat-font-size, var(--text-base))',
+                lineHeight: 1.45,
+                fontFamily: 'inherit',
+                padding: 0,
+                minHeight: '48px',
+              }}
+            />
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '0.45rem',
+                paddingTop: '0.35rem',
+                borderTop: '1px solid var(--hairline)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="apple-button"
+                style={{
+                  padding: '0.25rem 0.6rem',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: 'var(--radius-xs)',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendEdited}
+                disabled={!editedContent.trim() || isStreaming}
+                style={{
+                  padding: '0.25rem 0.75rem',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 600,
+                  borderRadius: 'var(--radius-xs)',
+                  backgroundColor: editedContent.trim() && !isStreaming ? 'var(--accent-primary)' : 'var(--bg-hover)',
+                  color: editedContent.trim() && !isStreaming ? '#ffffff' : 'var(--text-muted)',
+                  border: 'none',
+                  cursor: editedContent.trim() && !isStreaming ? 'pointer' : 'default',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  transition: 'background-color var(--transition-fast)',
+                }}
+              >
+                <ArrowUpIcon size={12} />
+                <span>Send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          width: '100%',
+          animation: 'fadeIn 0.2s ease-out forwards',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '78%',
+            backgroundColor: 'var(--msg-user-bg)',
+            color: 'var(--msg-user-text)',
+            borderRadius: '18px 18px 4px 18px',
+            padding: '0.65rem 1rem',
+            fontSize: 'var(--chat-font-size, var(--text-base))',
+            lineHeight: 1.45,
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          {message.content}
+        </div>
+
+        {/* Subtle Apple Hover Action Bar for User Message */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.6rem',
-            marginBottom: '0.35rem',
-            justifyContent: isUser ? 'flex-end' : 'flex-start',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-muted)',
+            gap: '0.35rem',
+            marginTop: '0.3rem',
+            opacity: isHovered ? 1 : 0,
+            pointerEvents: isHovered ? 'auto' : 'none',
+            transition: 'opacity var(--transition-fast)',
           }}
         >
-          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
-            {isUser ? 'You' : persona?.name || 'EgSA Assistant'}
-          </span>
-          {!isUser && message.modelId && (
-            <span
-              style={{
-                fontSize: '0.7rem',
-                padding: '0.1rem 0.4rem',
-                borderRadius: 'var(--radius-xs)',
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              {message.modelId}
-            </span>
-          )}
-          <span>{new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
+          <button
+            onClick={handleCopy}
+            className="apple-button"
+            style={{
+              padding: '0.2rem 0.45rem',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-xs)',
+              gap: '0.35rem',
+            }}
+            title="Copy prompt"
+          >
+            {copied ? <CheckIcon size={13} style={{ color: 'var(--success)' }} /> : <CopyIcon size={13} />}
+            <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
 
-        {/* Bubble */}
-        <div
-          style={{
-            padding: preferences.chatDensity === 'compact' ? '0.65rem 0.95rem' : '0.85rem 1.15rem',
-            fontSize: 'var(--chat-font-size, var(--text-base))',
-            position: 'relative',
-            ...getBubbleStyle(),
-          }}
-        >
-          {message.status === 'error' ? (
-            <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span>⚠️ {message.error || message.content}</span>
-            </div>
-          ) : isUser ? (
-            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</div>
-          ) : (
-            <MarkdownRenderer
-              content={message.content}
-              isStreaming={message.status === 'streaming'}
-            />
-          )}
-
-          {/* Assistant Metadata / Token Stats Bar */}
-          {!isUser && message.stats && (
-            <div
-              style={{
-                marginTop: '0.6rem',
-                paddingTop: '0.5rem',
-                borderTop: '1px solid var(--border-subtle)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-muted)',
-              }}
-            >
-              <button
-                onClick={() => setShowStats(!showStats)}
-                style={{
-                  fontSize: '0.72rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  color: 'var(--accent-primary)',
-                }}
-              >
-                <span>⚡ {message.stats.latencyMs}ms</span>
-                {message.stats.charsPerSec && <span>• {message.stats.charsPerSec} c/s</span>}
-                {message.stats.totalTokens && <span>• {message.stats.totalTokens} tokens</span>}
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <button
-                  onClick={handleCopy}
-                  title="Copy response"
-                  style={{
-                    padding: '0.2rem 0.4rem',
-                    borderRadius: 'var(--radius-xs)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    color: copied ? 'var(--accent-primary)' : 'inherit',
-                  }}
-                >
-                  {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
-                </button>
-
-                {isLatestAssistant && !isStreaming && (
-                  <button
-                    onClick={() => regenerateResponse(message.id)}
-                    title="Regenerate response"
-                    style={{
-                      padding: '0.2rem 0.4rem',
-                      borderRadius: 'var(--radius-xs)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                    }}
-                  >
-                    <RefreshCwIcon size={13} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+          <button
+            onClick={handleStartEdit}
+            disabled={isStreaming}
+            className="apple-button"
+            style={{
+              padding: '0.2rem 0.45rem',
+              fontSize: 'var(--text-xs)',
+              color: isStreaming ? 'var(--text-quaternary)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-xs)',
+              gap: '0.35rem',
+              cursor: isStreaming ? 'not-allowed' : 'pointer',
+            }}
+            title="Edit prompt and resend"
+          >
+            <PencilIcon size={13} />
+            <span>Edit</span>
+          </button>
         </div>
       </div>
+    );
+  }
+
+  // Assistant Message: Apple Intelligence Editorial Flow (Borderless & Cardless)
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        animation: 'fadeIn 0.2s ease-out forwards',
+        position: 'relative',
+      }}
+    >
+      {/* Editorial Content Container */}
+      <div style={{ width: '100%', padding: '0.25rem 0' }}>
+        <MarkdownRenderer
+          content={message.content}
+          isStreaming={message.status === 'streaming'}
+        />
+
+        {message.error && (
+          <div
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'rgba(255, 59, 48, 0.1)',
+              color: 'var(--danger)',
+              fontSize: 'var(--text-xs)',
+              border: '1px solid rgba(255, 59, 48, 0.2)',
+            }}
+          >
+            {message.error}
+          </div>
+        )}
+      </div>
+
+      {/* Subtle Apple Hover Action Bar */}
+      {!isStreaming && message.content && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            marginTop: '0.4rem',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity var(--transition-fast)',
+          }}
+        >
+          <button
+            onClick={handleCopy}
+            className="apple-button"
+            style={{
+              padding: '0.2rem 0.45rem',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-xs)',
+              gap: '0.35rem',
+            }}
+            title="Copy response"
+          >
+            {copied ? <CheckIcon size={13} style={{ color: 'var(--success)' }} /> : <CopyIcon size={13} />}
+            <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+
+          {isLatestAssistant && (
+            <button
+              onClick={() => regenerateResponse()}
+              className="apple-button"
+              style={{
+                padding: '0.2rem 0.45rem',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-muted)',
+                borderRadius: 'var(--radius-xs)',
+                gap: '0.35rem',
+              }}
+              title="Regenerate response"
+            >
+              <RefreshCwIcon size={13} />
+              <span>Retry</span>
+            </button>
+          )}
+
+          {message.stats?.latencyMs && (
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--text-muted)',
+                marginLeft: '0.5rem',
+              }}
+            >
+              {(message.stats.latencyMs / 1000).toFixed(2)}s
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -6,10 +6,64 @@ interface MarkdownRendererProps {
   isStreaming?: boolean;
 }
 
+function sanitizeStreamingMarkdown(text: string, isStreaming?: boolean): string {
+  if (!isStreaming || !text) return text;
+
+  let sanitized = text;
+
+  // 1. Auto-close dangling code fence ```
+  const codeBlockCount = (sanitized.match(/```/g) || []).length;
+  if (codeBlockCount % 2 !== 0) {
+    sanitized += '\n```';
+  } else {
+    // 2. Auto-close dangling inline code `
+    const remainingTicks = (sanitized.replace(/```[\s\S]*?```/g, '').match(/`/g) || []).length;
+    if (remainingTicks % 2 !== 0) {
+      sanitized += '`';
+    }
+  }
+
+  // 3. Auto-close dangling bold **
+  const remainingStars = (sanitized.replace(/```[\s\S]*?```/g, '').match(/\*\*/g) || []).length;
+  if (remainingStars % 2 !== 0) {
+    sanitized += '**';
+  }
+
+  // 4. Stabilize streaming table (prevent constant unmounting and re-parsing of tables)
+  const lines = sanitized.split('\n');
+  const lastLine = lines[lines.length - 1].trim();
+
+  // If currently streaming inside a table row
+  if (lastLine.startsWith('|')) {
+    // Ensure the in-flight row ends with '|' so it doesn't drop out of table mode into paragraph mode
+    if (!lastLine.endsWith('|')) {
+      sanitized += ' |';
+    }
+
+    // If the table currently only has the header row (1 line), auto-complete the delimiter row
+    let tableStartIdx = lines.length - 1;
+    while (tableStartIdx >= 0 && lines[tableStartIdx].trim().startsWith('|')) {
+      tableStartIdx--;
+    }
+    tableStartIdx++;
+
+    const tableLines = lines.slice(tableStartIdx);
+    if (tableLines.length === 1) {
+      const headerCols = tableLines[0].trim().slice(1, -1).split('|').filter(Boolean).length;
+      if (headerCols > 0) {
+        sanitized += '\n| ' + Array(headerCols).fill('---').join(' | ') + ' |';
+      }
+    }
+  }
+
+  return sanitized;
+}
+
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming }) => {
+  const safeContent = sanitizeStreamingMarkdown(content, isStreaming);
   return (
-    <div className="prose">
-      {parseMarkdown(content)}
+    <div className={`prose ${isStreaming ? 'is-streaming' : ''}`}>
+      {parseMarkdown(safeContent)}
       {isStreaming && <span className="stream-cursor" title="Streaming..." />}
     </div>
   );
@@ -106,28 +160,56 @@ function parseMarkdown(text: string): React.ReactNode[] {
       }
     };
 
+    const isDelimiterRow = (cols: string[]) =>
+      cols.length > 0 && cols.every((c) => /^[\s:-]+$/.test(c.trim()));
+
     const flushTable = (key: string) => {
       if (inTable && tableRows.length > 0) {
-        const header = tableRows[0];
-        const body = tableRows.slice(2); // skip separator row
+        let headerCols: string[] = [];
+        let bodyRows: string[][] = [];
+
+        // Identify header and body rows
+        if (tableRows.length >= 2 && isDelimiterRow(tableRows[1])) {
+          headerCols = tableRows[0];
+          bodyRows = tableRows.slice(2);
+        } else if (isDelimiterRow(tableRows[0])) {
+          headerCols = tableRows[0];
+          bodyRows = tableRows.slice(1);
+        } else {
+          headerCols = tableRows[0];
+          bodyRows = tableRows.slice(1);
+        }
+
+        const colCount = Math.max(headerCols.length, 1);
+
         elements.push(
-          <div key={key} style={{ overflowX: 'auto' }}>
+          <div key={key} className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  {header.map((col, idx) => (
-                    <th key={idx}>{renderInline(col.trim())}</th>
+                  {headerCols.map((col, idx) => (
+                    <th key={`th-${idx}`}>{renderInline(col.trim())}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {body.map((row, rIdx) => (
-                  <tr key={rIdx}>
-                    {row.map((col, cIdx) => (
-                      <td key={cIdx}>{renderInline(col.trim())}</td>
-                    ))}
-                  </tr>
-                ))}
+                {bodyRows.map((row, rIdx) => {
+                  if (isDelimiterRow(row)) return null;
+
+                  // Pad cells to match header column count to eliminate horizontal width shifts
+                  const cells = [...row];
+                  while (cells.length < colCount) {
+                    cells.push('');
+                  }
+
+                  return (
+                    <tr key={`tr-${rIdx}`}>
+                      {cells.slice(0, colCount).map((col, cIdx) => (
+                        <td key={`td-${rIdx}-${cIdx}`}>{renderInline(col.trim())}</td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -176,12 +258,19 @@ function parseMarkdown(text: string): React.ReactNode[] {
         return;
       }
 
-      // Table line
-      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      // Table line: either fully formatted or in-flight row while already in table
+      const isTableLine =
+        (trimmed.startsWith('|') && trimmed.endsWith('|')) ||
+        (inTable && trimmed.startsWith('|'));
+
+      if (isTableLine) {
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         inTable = true;
-        const cols = trimmed.slice(1, -1).split('|');
+        let rowContent = trimmed;
+        if (rowContent.startsWith('|')) rowContent = rowContent.slice(1);
+        if (rowContent.endsWith('|')) rowContent = rowContent.slice(0, -1);
+        const cols = rowContent.split('|');
         tableRows.push(cols);
         return;
       } else if (inTable) {

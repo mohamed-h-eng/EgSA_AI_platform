@@ -9,15 +9,54 @@ import { useSettingsStore } from './stores/settingsStore';
 export const App: React.FC = () => {
   const preferences = useSettingsStore((s) => s.preferences);
 
-  // Initialize and synchronize theme tokens on document element
+  // Initialize and synchronize theme tokens and font size on document element
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', preferences.theme);
+    const updateTheme = () => {
+      let resolvedTheme = preferences.theme;
+      if (resolvedTheme === 'system') {
+        resolvedTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', resolvedTheme);
+    };
+
+    updateTheme();
+
+    if (preferences.theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => updateTheme();
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    }
+  }, [preferences.theme]);
+
+  useEffect(() => {
+    const scaleMap: Record<
+      string,
+      { root: string; chat: string; iconScale: string; headerHeight: string; sidebarWidth: string }
+    > = {
+      sm: { root: '14px', chat: '13.5px', iconScale: '0.88', headerHeight: '48px', sidebarWidth: '245px' },
+      md: { root: '16px', chat: '15px', iconScale: '1.0', headerHeight: '52px', sidebarWidth: '260px' },
+      lg: { root: '18px', chat: '17.5px', iconScale: '1.14', headerHeight: '58px', sidebarWidth: '280px' },
+    };
+
+    const config = scaleMap[preferences.fontSize] || scaleMap.md;
+
+    // Scale root html font size so all rem tokens in all components scale proportionally
+    document.documentElement.style.fontSize = config.root;
+    document.documentElement.style.setProperty('--chat-font-size', config.chat);
+    document.documentElement.style.setProperty('--icon-scale', config.iconScale);
+    document.documentElement.style.setProperty('--header-height', config.headerHeight);
+    document.documentElement.style.setProperty('--sidebar-width', config.sidebarWidth);
+    document.documentElement.setAttribute('data-font-size', preferences.fontSize);
+  }, [preferences.fontSize]);
+
+  useEffect(() => {
     if (preferences.customAccentColor) {
       document.documentElement.style.setProperty('--accent-primary', preferences.customAccentColor);
+    } else {
+      document.documentElement.style.removeProperty('--accent-primary');
     }
-    const sizeMap = { sm: '14px', md: '15px', lg: '17px' };
-    document.documentElement.style.setProperty('--chat-font-size', sizeMap[preferences.fontSize]);
-  }, [preferences.theme, preferences.customAccentColor, preferences.fontSize]);
+  }, [preferences.customAccentColor]);
 
   return (
     <div
