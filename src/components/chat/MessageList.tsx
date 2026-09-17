@@ -175,7 +175,7 @@ export const MessageList: React.FC = () => {
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '1.5rem 1.5rem 6rem',
+          padding: '1rem clamp(0.75rem, 3vw, 1.5rem) calc(6.5rem + var(--safe-area-bottom))',
           outline: 'none',
         }}
       >
@@ -190,13 +190,13 @@ export const MessageList: React.FC = () => {
           {isEmptySession ? (
             <div
               style={{
-                minHeight: '60vh',
+                minHeight: '55vh',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 textAlign: 'center',
-                padding: '2rem 1rem',
+                padding: '1.5rem 0.5rem',
                 animation: 'fadeIn 0.3s ease-out',
               }}
             >
@@ -209,12 +209,12 @@ export const MessageList: React.FC = () => {
                   justifyContent: 'center',
                 }}
               >
-                <Logo size="hero" style={{ height: '76px' }} />
+                <Logo size="hero" style={{ height: 'clamp(56px, 10vw, 76px)' }} />
               </div>
 
               <h1
                 style={{
-                  fontSize: 'var(--text-2xl)',
+                  fontSize: 'clamp(var(--text-xl), 4vw, var(--text-2xl))',
                   fontWeight: 600,
                   letterSpacing: '-0.025em',
                   color: 'var(--text-primary)',
@@ -226,11 +226,11 @@ export const MessageList: React.FC = () => {
 
               <p
                 style={{
-                  fontSize: 'var(--text-base)',
+                  fontSize: 'clamp(var(--text-sm), 2.5vw, var(--text-base))',
                   color: 'var(--text-secondary)',
                   maxWidth: '480px',
                   lineHeight: 1.5,
-                  marginBottom: '2.5rem',
+                  marginBottom: 'clamp(1.5rem, 4vh, 2.5rem)',
                 }}
               >
                 Orbital telemetry, mission flight dynamics, and aerospace systems analysis.
@@ -309,7 +309,7 @@ export const MessageList: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            bottom: '80px',
+            bottom: 'calc(76px + var(--safe-area-bottom))',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 35,

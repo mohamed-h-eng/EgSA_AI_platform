@@ -165,6 +165,11 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       status: 'complete',
     };
 
+    const isCustomApi = settings.aiConfig.providerType === 'custom-api' || settings.aiConfig.providerType === 'openai-compatible';
+    const effectiveModelId = isCustomApi
+      ? (settings.aiConfig.customModelId || 'gpt-4o-mini')
+      : settings.aiConfig.activeModelId;
+
     const assistantMessageId = generateId();
     const assistantPlaceholder: ChatMessage = {
       id: assistantMessageId,
@@ -172,7 +177,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       content: '',
       timestamp: Date.now(),
       status: 'streaming',
-      modelId: settings.aiConfig.activeModelId,
+      modelId: effectiveModelId,
     };
 
     const isFirstUserMessage = currentSession.messages.filter((m) => m.role === 'user').length === 0;
@@ -234,7 +239,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       const abort = await provider.generateStream(
         {
           messages: historyForLLM,
-          modelId: settings.aiConfig.activeModelId,
+          modelId: effectiveModelId,
           systemPrompt: currentSession.systemPrompt || settings.aiConfig.systemPrompt,
           temperature: currentSession.temperature ?? settings.aiConfig.temperature,
           maxTokens: settings.aiConfig.maxTokens,
@@ -252,7 +257,9 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
               if (msg.id === assistantMessageId) {
                 return {
                   ...msg,
-                  content: msg.content || 'An error occurred during response generation.',
+                  content:
+                    msg.content ||
+                    `⚠️ **Connection Error**: ${err.message}\n\nPlease check your endpoint URL, API key, and model ID in **Preferences > Engine & API**.`,
                   status: 'error',
                   error: err.message,
                 } as ChatMessage;

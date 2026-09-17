@@ -52,15 +52,19 @@ function aiProxyPlugin(): Plugin {
               forwardHeaders['X-Title'] = req.headers['x-title'] as string;
             }
 
+            const isBodyAllowed = req.method !== 'GET' && req.method !== 'HEAD';
             const targetRes = await fetch(targetUrl, {
               method: req.method || 'POST',
               headers: forwardHeaders,
-              body: rawBody.length > 0 ? rawBody : undefined,
+              body: isBodyAllowed && rawBody.length > 0 ? rawBody : undefined,
             });
 
             res.statusCode = targetRes.status;
             const contentType = targetRes.headers.get('content-type') || 'application/json';
             res.setHeader('Content-Type', contentType);
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Headers', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
             if (contentType.includes('text/event-stream')) {
               res.setHeader('Cache-Control', 'no-cache');

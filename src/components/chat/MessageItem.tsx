@@ -58,7 +58,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
           <div
             style={{
               width: '100%',
-              maxWidth: '85%',
+              maxWidth: 'min(92%, 680px)',
               backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--accent-primary)',
               borderRadius: '16px',
@@ -162,7 +162,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
       >
         <div
           style={{
-            maxWidth: '78%',
+            maxWidth: 'min(88%, 680px)',
             backgroundColor: 'var(--msg-user-bg)',
             color: 'var(--msg-user-text)',
             borderRadius: '18px 18px 4px 18px',
@@ -179,6 +179,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
 
         {/* Subtle Apple Hover Action Bar for User Message */}
         <div
+          className="touch-action-visible"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -267,12 +268,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
       {/* Subtle Apple Hover Action Bar */}
       {!isStreaming && message.content && (
         <div
+          className="touch-action-visible"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.35rem',
             marginTop: '0.4rem',
             opacity: isHovered ? 1 : 0,
+            pointerEvents: isHovered ? 'auto' : 'none',
             transition: 'opacity var(--transition-fast)',
           }}
         >

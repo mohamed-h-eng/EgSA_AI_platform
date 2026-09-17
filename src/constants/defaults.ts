@@ -128,8 +128,6 @@ export interface ProviderPreset {
   name: string;
   badge: string;
   endpointUrl: string;
-  defaultModel: string;
-  popularModels: string[];
   placeholderKey: string;
   keyHelp: string;
   requiresKey: boolean;
@@ -142,20 +140,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'OpenAI',
     badge: 'Cloud',
     endpointUrl: 'https://api.openai.com/v1/chat/completions',
-    defaultModel: 'gpt-4o-mini',
-    popularModels: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo', 'o1-mini'],
     placeholderKey: 'sk-proj-...',
     keyHelp: 'API Key from platform.openai.com/api-keys',
     requiresKey: true,
-    notes: 'Official OpenAI Chat Completions endpoint.',
+    notes: 'Official OpenAI API endpoint.',
   },
   {
     id: 'groq',
     name: 'Groq Cloud',
     badge: 'Ultra Fast',
     endpointUrl: 'https://api.groq.com/openai/v1/chat/completions',
-    defaultModel: 'llama-3.3-70b-versatile',
-    popularModels: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
     placeholderKey: 'gsk_...',
     keyHelp: 'Free / high-speed API keys from console.groq.com',
     requiresKey: true,
@@ -166,20 +160,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'Ollama (Local)',
     badge: 'Local Offline',
     endpointUrl: 'http://localhost:11434/v1/chat/completions',
-    defaultModel: 'llama3.2',
-    popularModels: ['llama3.2', 'llama3', 'deepseek-r1:latest', 'mistral', 'qwen2.5', 'phi3'],
     placeholderKey: 'Optional (e.g. ollama)',
     keyHelp: 'No API key required by default for local Ollama.',
     requiresKey: false,
-    notes: 'Ensure Ollama is running. For browser CORS, launch with OLLAMA_ORIGINS="*" or keep Proxy enabled.',
+    notes: 'Local Ollama server. Retrieves models installed via `ollama pull`.',
   },
   {
     id: 'openrouter',
     name: 'OpenRouter',
     badge: 'Multi-Model',
     endpointUrl: 'https://openrouter.ai/api/v1/chat/completions',
-    defaultModel: 'openai/gpt-4o-mini',
-    popularModels: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-chat', 'meta-llama/llama-3.3-70b-instruct'],
     placeholderKey: 'sk-or-v1-...',
     keyHelp: 'API Key from openrouter.ai/keys',
     requiresKey: true,
@@ -190,20 +180,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'DeepSeek',
     badge: 'Reasoning',
     endpointUrl: 'https://api.deepseek.com/chat/completions',
-    defaultModel: 'deepseek-chat',
-    popularModels: ['deepseek-chat', 'deepseek-reasoner'],
     placeholderKey: 'sk-...',
     keyHelp: 'API Key from platform.deepseek.com',
     requiresKey: true,
-    notes: 'High-intelligence DeepSeek V3 and R1 reasoning models.',
+    notes: 'DeepSeek V3 and R1 reasoning models.',
   },
   {
     id: 'lmstudio',
     name: 'LM Studio (Local)',
     badge: 'Local GUI',
     endpointUrl: 'http://localhost:1234/v1/chat/completions',
-    defaultModel: 'local-model',
-    popularModels: ['local-model'],
     placeholderKey: 'Not required',
     keyHelp: 'Start the Local Server tab inside LM Studio.',
     requiresKey: false,
@@ -214,8 +200,6 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     name: 'Custom Endpoint',
     badge: 'Custom',
     endpointUrl: '',
-    defaultModel: '',
-    popularModels: [],
     placeholderKey: 'Bearer token or API key',
     keyHelp: 'Any OpenAI-compatible server or proxy.',
     requiresKey: false,
@@ -233,8 +217,9 @@ export const DEFAULT_AI_CONFIG: AIConfiguration = {
   providerType: 'mock',
   customEndpointUrl: '',
   apiKey: '',
-  customModelId: 'gpt-4o-mini',
+  customModelId: '',
   providerPreset: 'openai',
   useProxy: true,
 };
+
 

@@ -14,8 +14,10 @@ import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DeleteChatModal } from '../chat/DeleteChatModal';
 import { Logo } from '../ui/Logo';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export const Sidebar: React.FC = () => {
+  const isMobile = useIsMobile(768);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [sessionToDelete, setSessionToDelete] = useState<{ id: string; title: string } | null>(null);
@@ -47,6 +49,20 @@ export const Sidebar: React.FC = () => {
     setTheme(isDarkMode ? 'light' : 'dark');
   };
 
+  const handleSelectSession = (id: string) => {
+    selectSession(id);
+    if (isMobile) {
+      toggleSidebar();
+    }
+  };
+
+  const handleCreateNew = () => {
+    createNewSession();
+    if (isMobile) {
+      toggleSidebar();
+    }
+  };
+
   const filteredSessions = sessions.filter((s) =>
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.messages.some((m) => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -68,83 +84,107 @@ export const Sidebar: React.FC = () => {
   if (!isSidebarOpen) return null;
 
   return (
-    <aside
-      style={{
-        width: 'var(--sidebar-width)',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        borderRight: '1px solid var(--hairline)',
-        backgroundColor: 'var(--bg-sidebar)',
-        flexShrink: 0,
-        zIndex: 20,
-        userSelect: 'none',
-      }}
-    >
-      {/* macOS Sidebar Header Toolbar */}
-      <div
+    <>
+      {/* Dimmed glass backdrop on mobile screens */}
+      {isMobile && (
+        <div
+          onClick={toggleSidebar}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            zIndex: 40,
+            animation: 'fadeInOverlay 0.2s ease-out',
+          }}
+        />
+      )}
+
+      <aside
         style={{
-          height: 'var(--header-height)',
-          padding: '0 0.85rem',
+          position: isMobile ? 'fixed' : 'relative',
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: isMobile ? 'min(300px, 84vw)' : 'var(--sidebar-width)',
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid var(--hairline)',
+          flexDirection: 'column',
+          borderRight: '1px solid var(--hairline)',
+          backgroundColor: 'var(--bg-sidebar)',
           flexShrink: 0,
+          zIndex: isMobile ? 50 : 20,
+          boxShadow: isMobile ? 'var(--shadow-modal)' : 'none',
+          animation: isMobile ? 'slideDrawerIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
+          userSelect: 'none',
+          paddingBottom: isMobile ? 'var(--safe-area-bottom)' : 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', overflow: 'hidden' }}>
-          <Logo size="sm" style={{ height: '24px', flexShrink: 0 }} />
-          <div>
-            <h2
+        {/* macOS Sidebar Header Toolbar */}
+        <div
+          style={{
+            height: 'var(--header-height)',
+            padding: '0 0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid var(--hairline)',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', overflow: 'hidden' }}>
+            <Logo size="sm" style={{ height: '24px', flexShrink: 0 }} />
+            <div>
+              <h2
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  letterSpacing: '-0.01em',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                EgSA Intelligence
+              </h2>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+            {/* New Chat Action */}
+            <button
+              onClick={handleCreateNew}
+              className="apple-button"
               style={{
-                fontSize: 'var(--text-sm)',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                letterSpacing: '-0.01em',
-                lineHeight: 1.2,
-                whiteSpace: 'nowrap',
+                width: '28px',
+                height: '28px',
+                padding: 0,
+                borderRadius: 'var(--radius-xs)',
+                color: 'var(--text-secondary)',
               }}
+              title="New Conversation (Cmd+N)"
             >
-              EgSA Intelligence
-            </h2>
+              <SquarePenIcon size={16} />
+            </button>
+
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={toggleSidebar}
+              className="apple-button"
+              style={{
+                width: '28px',
+                height: '28px',
+                padding: 0,
+                borderRadius: 'var(--radius-xs)',
+                color: 'var(--text-secondary)',
+              }}
+              title="Collapse Sidebar"
+            >
+              <PanelLeftIcon size={16} />
+            </button>
           </div>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-          {/* New Chat Action */}
-          <button
-            onClick={() => createNewSession()}
-            className="apple-button"
-            style={{
-              width: '28px',
-              height: '28px',
-              padding: 0,
-              borderRadius: 'var(--radius-xs)',
-              color: 'var(--text-secondary)',
-            }}
-            title="New Conversation (Cmd+N)"
-          >
-            <SquarePenIcon size={16} />
-          </button>
-
-          {/* Sidebar Toggle Button */}
-          <button
-            onClick={toggleSidebar}
-            className="apple-button"
-            style={{
-              width: '28px',
-              height: '28px',
-              padding: 0,
-              borderRadius: 'var(--radius-xs)',
-              color: 'var(--text-secondary)',
-            }}
-            title="Collapse Sidebar"
-          >
-            <PanelLeftIcon size={16} />
-          </button>
-        </div>
-      </div>
 
       {/* Search Input Field */}
       <div style={{ padding: '0.65rem 0.85rem 0.45rem' }}>
@@ -224,7 +264,7 @@ export const Sidebar: React.FC = () => {
             return (
               <div
                 key={session.id}
-                onClick={() => selectSession(session.id)}
+                onClick={() => handleSelectSession(session.id)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -361,7 +401,10 @@ export const Sidebar: React.FC = () => {
         }}
       >
         <button
-          onClick={() => openSettings()}
+          onClick={() => {
+            openSettings();
+            if (isMobile) toggleSidebar();
+          }}
           className="apple-button"
           style={{
             fontSize: 'var(--text-xs)',
@@ -405,5 +448,6 @@ export const Sidebar: React.FC = () => {
         onCancel={() => setSessionToDelete(null)}
       />
     </aside>
+    </>
   );
 };

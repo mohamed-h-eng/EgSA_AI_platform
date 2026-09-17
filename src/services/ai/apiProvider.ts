@@ -66,6 +66,110 @@ export function resolveRequestUrl(targetUrl: string, useProxy?: boolean): string
 }
 
 /**
+ * Fetches the live list of available models directly from the provider's endpoint
+ */
+export async function fetchAvailableModels(options: {
+  endpointUrl: string;
+  apiKey?: string;
+  useProxy?: boolean;
+}): Promise<{ ok: boolean; models: string[]; error?: string }> {
+  const rawUrl = options.endpointUrl.trim().replace(/\/+$/, '');
+  if (!rawUrl) {
+    return { ok: false, models: [], error: 'Please enter an endpoint URL first.' };
+  }
+
+  const candidateUrls: string[] = [];
+
+  if (rawUrl.endsWith('/chat/completions')) {
+    candidateUrls.push(rawUrl.replace(/\/chat\/completions$/, '/models'));
+  } else if (rawUrl.endsWith('/completions')) {
+    candidateUrls.push(rawUrl.replace(/\/completions$/, '/models'));
+  } else if (rawUrl.endsWith('/v1')) {
+    candidateUrls.push(`${rawUrl}/models`);
+  } else if (/:\d{4,5}$/.test(rawUrl)) {
+    candidateUrls.push(`${rawUrl}/v1/models`);
+    candidateUrls.push(`${rawUrl}/api/tags`);
+    candidateUrls.push(`${rawUrl}/models`);
+  } else {
+    candidateUrls.push(`${rawUrl}/models`);
+    candidateUrls.push(`${rawUrl}/v1/models`);
+  }
+
+  if (rawUrl.includes('11434') || rawUrl.includes('ollama')) {
+    const base = rawUrl.split('/v1')[0].split('/api')[0].replace(/\/+$/, '');
+    candidateUrls.push(`${base}/api/tags`);
+    candidateUrls.push(`${base}/v1/models`);
+  }
+
+  const uniqueCandidates = Array.from(new Set(candidateUrls));
+  let lastError = '';
+
+  for (const candidate of uniqueCandidates) {
+    try {
+      const target = resolveRequestUrl(candidate, options.useProxy);
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (options.apiKey?.trim()) {
+        headers['Authorization'] = `Bearer ${options.apiKey.trim()}`;
+      }
+      if (candidate.includes('openrouter.ai') && typeof window !== 'undefined') {
+        headers['HTTP-Referer'] = window.location.origin;
+        headers['X-Title'] = 'EgSA AI Platform';
+      }
+
+      const res = await fetch(target, { method: 'GET', headers });
+      if (!res.ok) {
+        let errText = '';
+        try {
+          const json = await res.json();
+          errText = json.error?.message || json.message || '';
+        } catch {
+          errText = await res.text().catch(() => '');
+        }
+        lastError = `HTTP ${res.status}: ${errText || res.statusText}`;
+        continue;
+      }
+
+      const json = await res.json();
+      let modelList: string[] = [];
+
+      // Standard OpenAI format: { data: [{ id: "..." }, ...] }
+      if (Array.isArray(json.data)) {
+        modelList = json.data
+          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name))
+          .filter(Boolean);
+      }
+      // Ollama format: { models: [{ name: "..." }, ...] }
+      else if (Array.isArray(json.models)) {
+        modelList = json.models
+          .map((m: any) => (typeof m === 'string' ? m : m.name || m.id))
+          .filter(Boolean);
+      }
+      // Flat array
+      else if (Array.isArray(json)) {
+        modelList = json
+          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name))
+          .filter(Boolean);
+      }
+
+      if (modelList.length > 0) {
+        modelList.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+        return { ok: true, models: modelList };
+      }
+    } catch (err: any) {
+      lastError = err.message || 'Network request failed';
+    }
+  }
+
+  return {
+    ok: false,
+    models: [],
+    error: lastError || 'Could not retrieve models from endpoint.',
+  };
+}
+
+/**
  * Probes the target LLM endpoint with diagnostic feedback on latency, HTTP status, and error messages
  */
 export async function testEndpointConnection(options: {
@@ -79,7 +183,19 @@ export async function testEndpointConnection(options: {
     return { ok: false, message: 'Please enter an endpoint URL.' };
   }
 
-  const targetModel = options.modelId?.trim() || 'gpt-4o-mini';
+  let targetModel = options.modelId?.trim();
+  if (!targetModel) {
+    const fetched = await fetchAvailableModels({
+      endpointUrl: options.endpointUrl,
+      apiKey: options.apiKey,
+      useProxy: options.useProxy,
+    });
+    if (fetched.ok && fetched.models.length > 0) {
+      targetModel = fetched.models[0];
+    } else {
+      targetModel = 'gpt-4o-mini';
+    }
+  }
   const startTime = Date.now();
 
   const runProbe = async (url: string) => {

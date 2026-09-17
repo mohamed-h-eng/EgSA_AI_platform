@@ -38,9 +38,15 @@
 
   /* Layout dimensions */
   --sidebar-width: 260px;
+  --sidebar-width-mobile: min(300px, 84vw);
   --header-height: 52px;
+  --header-height-mobile: 48px;
   --content-max-width: 768px;
   --icon-scale: 1;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
 }
 
 /* Default / Apple Light Mode */

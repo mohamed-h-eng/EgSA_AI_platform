@@ -69,7 +69,7 @@ export const DeleteChatModal: React.FC<DeleteChatModalProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: 'clamp(0.75rem, 3vw, 1.5rem)',
         animation: 'fadeIn 0.16s ease-out',
         pointerEvents: 'auto',
       }}
@@ -78,12 +78,12 @@ export const DeleteChatModal: React.FC<DeleteChatModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '380px',
+          maxWidth: 'min(380px, 92vw)',
           backgroundColor: 'var(--bg-elevated)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--hairline)',
           boxShadow: 'var(--shadow-modal)',
-          padding: '1.6rem 1.5rem 1.4rem',
+          padding: 'clamp(1.2rem, 4vw, 1.6rem) clamp(1rem, 4vw, 1.5rem)',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

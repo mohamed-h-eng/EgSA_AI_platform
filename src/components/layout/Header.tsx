@@ -75,7 +75,7 @@ export const Header: React.FC = () => {
       className="apple-glass"
       style={{
         height: 'var(--header-height)',
-        padding: '0 1rem',
+        padding: '0 clamp(0.5rem, 2.5vw, 1rem)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -83,10 +83,11 @@ export const Header: React.FC = () => {
         zIndex: 30,
         userSelect: 'none',
         position: 'relative',
+        gap: '0.4rem',
       }}
     >
       {/* Left Section: Sidebar Toggle & Conversation Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
         {!isSidebarOpen && (
           <button
             onClick={toggleSidebar}
@@ -98,13 +99,14 @@ export const Header: React.FC = () => {
               padding: 0,
               borderRadius: 'var(--radius-xs)',
               color: 'var(--text-secondary)',
+              flexShrink: 0,
             }}
           >
             <PanelLeftIcon size={16} />
           </button>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
           <h1
             style={{
               fontSize: 'var(--text-sm)',
@@ -112,6 +114,10 @@ export const Header: React.FC = () => {
               color: 'var(--text-primary)',
               letterSpacing: '-0.01em',
               lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: 'clamp(90px, 25vw, 240px)',
             }}
           >
             {currentSession ? currentSession.title : 'New Conversation'}
@@ -120,21 +126,23 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Center Section: Model & Persona Selector Trigger */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, justifyContent: 'center' }}>
         <button
           onClick={() => openSettings(isCustomApi ? 'api' : 'model')}
           className="apple-button"
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
-            padding: '0.3rem 0.6rem',
+            gap: '0.35rem',
+            padding: '0.28rem clamp(0.4rem, 1.5vw, 0.65rem)',
             borderRadius: 'var(--radius-sm)',
             fontSize: 'var(--text-xs)',
             color: 'var(--text-secondary)',
             fontWeight: 500,
             backgroundColor: 'var(--bg-tertiary)',
             border: '1px solid transparent',
+            maxWidth: 'clamp(120px, 42vw, 280px)',
+            overflow: 'hidden',
           }}
           title={isCustomApi ? "Configured with live custom API endpoint" : "Switch model or persona"}
         >
@@ -148,20 +156,34 @@ export const Header: React.FC = () => {
                 color: 'var(--accent-text)',
                 fontWeight: 700,
                 letterSpacing: '0.04em',
+                flexShrink: 0,
               }}
             >
               LIVE
             </span>
           )}
-          <span>{activePersona.name}</span>
-          <span style={{ color: 'var(--text-muted)' }}>•</span>
-          <span style={{ color: 'var(--text-primary)' }}>{displayedModelName}</span>
-          <ChevronDownIcon size={12} style={{ color: 'var(--text-muted)', marginLeft: '1px' }} />
+          <span className="hide-on-mobile" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {activePersona.name}
+          </span>
+          <span className="hide-on-mobile" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+            •
+          </span>
+          <span
+            style={{
+              color: 'var(--text-primary)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {displayedModelName}
+          </span>
+          <ChevronDownIcon size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
         </button>
       </div>
 
       {/* Right Section: Account Trigger & Dropdown Menu */}
-      <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', position: 'relative', flexShrink: 0 }}>
         <button
           ref={accountTriggerRef}
           onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
@@ -169,8 +191,8 @@ export const Header: React.FC = () => {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.2rem 0.45rem 0.2rem 0.25rem',
+            gap: '0.45rem',
+            padding: '0.2rem clamp(0.2rem, 1vw, 0.45rem) 0.2rem 0.2rem',
             borderRadius: 'var(--radius-full)',
             border: '1px solid var(--hairline)',
             backgroundColor: isAccountMenuOpen ? 'var(--bg-active)' : 'transparent',
@@ -192,12 +214,14 @@ export const Header: React.FC = () => {
               fontSize: '0.7rem',
               fontWeight: 600,
               letterSpacing: '0.02em',
+              flexShrink: 0,
             }}
           >
             ME
           </div>
 
           <span
+            className="hide-on-mobile"
             style={{
               fontSize: 'var(--text-xs)',
               fontWeight: 500,
@@ -213,6 +237,7 @@ export const Header: React.FC = () => {
 
           <ChevronDownIcon
             size={12}
+            className="hide-on-mobile"
             style={{
               color: 'var(--text-muted)',
               transform: isAccountMenuOpen ? 'rotate(180deg)' : 'none',
@@ -230,6 +255,7 @@ export const Header: React.FC = () => {
               top: 'calc(100% + 8px)',
               right: 0,
               width: '280px',
+              maxWidth: 'min(280px, 90vw)',
               backgroundColor: 'var(--bg-elevated)',
               backdropFilter: 'blur(28px) saturate(180%)',
               WebkitBackdropFilter: 'blur(28px) saturate(180%)',

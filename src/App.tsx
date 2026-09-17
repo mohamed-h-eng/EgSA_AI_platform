@@ -1,13 +1,34 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { MessageList } from './components/chat/MessageList';
 import { ChatInput } from './components/chat/ChatInput';
 import { SettingsModal } from './components/settings/SettingsModal';
 import { useSettingsStore } from './stores/settingsStore';
+import { useChatStore } from './stores/chatStore';
 
 export const App: React.FC = () => {
   const preferences = useSettingsStore((s) => s.preferences);
+  const hasInitializedSidebarRef = useRef(false);
+
+  // Auto-close sidebar on mobile devices on initial mount or when screen shrinks
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile && !hasInitializedSidebarRef.current) {
+        useChatStore.getState().setSidebarOpen(false);
+        hasInitializedSidebarRef.current = true;
+      }
+    };
+
+    if (window.innerWidth < 768) {
+      useChatStore.getState().setSidebarOpen(false);
+      hasInitializedSidebarRef.current = true;
+    }
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Initialize and synchronize theme tokens and font size on document element
   useEffect(() => {
@@ -62,11 +83,12 @@ export const App: React.FC = () => {
     <div
       style={{
         display: 'flex',
-        height: '100vh',
+        height: '100dvh',
         width: '100vw',
         overflow: 'hidden',
         backgroundColor: 'var(--bg-primary)',
         color: 'var(--text-primary)',
+        position: 'relative',
       }}
     >
       {/* Navigation & History Sidebar */}
@@ -81,6 +103,7 @@ export const App: React.FC = () => {
           height: '100%',
           overflow: 'hidden',
           position: 'relative',
+          minWidth: 0,
         }}
       >
         <Header />

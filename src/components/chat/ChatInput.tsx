@@ -180,7 +180,7 @@ export const ChatInput: React.FC = () => {
         bottom: 0,
         left: 0,
         right: 0,
-        padding: '0.75rem 1.25rem 1.25rem',
+        padding: '0.5rem clamp(0.5rem, 3vw, 1.25rem) calc(0.75rem + var(--safe-area-bottom))',
         background: 'linear-gradient(to top, var(--bg-primary) 70%, transparent 100%)',
         display: 'flex',
         justifyContent: 'center',
@@ -199,13 +199,13 @@ export const ChatInput: React.FC = () => {
           style={{
             display: 'flex',
             alignItems: 'flex-end',
-            gap: '0.5rem',
+            gap: '0.45rem',
             backgroundColor: 'var(--bg-glass-heavy)',
             backdropFilter: 'blur(28px) saturate(180%)',
             WebkitBackdropFilter: 'blur(28px) saturate(180%)',
             border: '1px solid var(--hairline)',
-            borderRadius: '24px',
-            padding: '0.45rem 0.55rem 0.45rem 1.15rem',
+            borderRadius: '26px',
+            padding: '0.38rem 0.48rem 0.38rem clamp(0.75rem, 2.5vw, 1.15rem)',
             boxShadow: 'var(--shadow-md)',
             transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
           }}
@@ -241,8 +241,8 @@ export const ChatInput: React.FC = () => {
             <button
               onClick={stopGeneration}
               style={{
-                width: '32px',
-                height: '32px',
+                width: '34px',
+                height: '34px',
                 borderRadius: '50%',
                 backgroundColor: 'var(--bg-tertiary)',
                 color: 'var(--text-primary)',
@@ -255,15 +255,15 @@ export const ChatInput: React.FC = () => {
               }}
               title="Stop Generation"
             >
-              <StopCircleIcon size={18} />
+              <StopCircleIcon size={19} />
             </button>
           ) : (
             <button
               onClick={() => handleSubmit()}
               disabled={!hasText}
               style={{
-                width: '32px',
-                height: '32px',
+                width: '34px',
+                height: '34px',
                 borderRadius: '50%',
                 backgroundColor: hasText ? 'var(--accent-primary)' : 'var(--bg-hover)',
                 color: hasText ? '#ffffff' : 'var(--text-muted)',

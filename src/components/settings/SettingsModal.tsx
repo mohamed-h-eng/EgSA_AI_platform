@@ -13,14 +13,17 @@ import {
   KeyIcon,
   EyeIcon,
   EyeOffIcon,
+  RefreshCwIcon,
 } from '../ui/Icons';
 import { Logo } from '../ui/Logo';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_MODELS, DEFAULT_PERSONAS, PROVIDER_PRESETS, type ProviderPreset } from '../../constants/defaults';
-import { testEndpointConnection, type ConnectionTestResult } from '../../services/ai/apiProvider';
+import { testEndpointConnection, fetchAvailableModels, type ConnectionTestResult } from '../../services/ai/apiProvider';
 import type { FontSizeOption, ChatDensity } from '../../types';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export const SettingsModal: React.FC = () => {
+  const isMobile = useIsMobile(640);
   const isSettingsOpen = useSettingsStore((s) => s.isSettingsOpen);
   const activeSettingsTab = useSettingsStore((s) => s.activeSettingsTab);
   const preferences = useSettingsStore((s) => s.preferences);
@@ -46,6 +49,11 @@ export const SettingsModal: React.FC = () => {
   const [isTesting, setIsTesting] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [modelsFetchError, setModelsFetchError] = useState<string | null>(null);
+  const [isManualModelEntry, setIsManualModelEntry] = useState(false);
+
   if (!isSettingsOpen) return null;
 
   const APPLE_ACCENTS = [
@@ -62,9 +70,36 @@ export const SettingsModal: React.FC = () => {
       providerType: 'custom-api',
       providerPreset: preset.id,
       customEndpointUrl: preset.endpointUrl,
-      customModelId: preset.defaultModel,
+      customModelId: '',
     });
     setTestResult(null);
+    setAvailableModels([]);
+    setModelsFetchError(null);
+    setIsManualModelEntry(false);
+  };
+
+  const handleFetchModels = async () => {
+    if (!aiConfig.customEndpointUrl?.trim()) return;
+    setIsFetchingModels(true);
+    setModelsFetchError(null);
+
+    const result = await fetchAvailableModels({
+      endpointUrl: aiConfig.customEndpointUrl,
+      apiKey: aiConfig.apiKey,
+      useProxy: aiConfig.useProxy ?? true,
+    });
+
+    setIsFetchingModels(false);
+
+    if (result.ok && result.models.length > 0) {
+      setAvailableModels(result.models);
+      if (!aiConfig.customModelId || !result.models.includes(aiConfig.customModelId)) {
+        setAIConfig({ customModelId: result.models[0] });
+      }
+      setTestResult(null);
+    } else {
+      setModelsFetchError(result.error || 'Failed to retrieve models from endpoint.');
+    }
   };
 
   const handleTestEndpoint = async () => {
@@ -84,6 +119,7 @@ export const SettingsModal: React.FC = () => {
   };
 
 
+
   return (
     <div
       style={{
@@ -96,7 +132,7 @@ export const SettingsModal: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1.5rem',
+        padding: isMobile ? 0 : '1.5rem',
         animation: 'fadeIn 0.18s ease-out',
       }}
       onClick={closeSettings}
@@ -105,84 +141,87 @@ export const SettingsModal: React.FC = () => {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '780px',
-          height: '560px',
-          maxHeight: '90vh',
+          maxWidth: isMobile ? '100vw' : '780px',
+          height: isMobile ? '100dvh' : '560px',
+          maxHeight: isMobile ? '100dvh' : '90vh',
           backgroundColor: 'var(--bg-primary)',
-          borderRadius: '16px',
-          boxShadow: 'var(--shadow-modal)',
-          border: '1px solid var(--hairline)',
+          borderRadius: isMobile ? 0 : '16px',
+          boxShadow: isMobile ? 'none' : 'var(--shadow-modal)',
+          border: isMobile ? 'none' : '1px solid var(--hairline)',
           display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
           overflow: 'hidden',
           animation: 'slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* macOS Settings Sidebar */}
-        <div
-          style={{
-            width: '210px',
-            backgroundColor: 'var(--bg-secondary)',
-            borderRight: '1px solid var(--hairline)',
-            padding: '1rem 0.65rem',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            flexShrink: 0,
-            userSelect: 'none',
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            <div
-              style={{
-                fontSize: 'var(--text-xs)',
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                padding: '0.4rem 0.65rem 0.6rem',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              Preferences
-            </div>
-
-            <SidebarTabButton
-              active={activeSettingsTab === 'appearance'}
-              onClick={() => openSettings('appearance')}
-              icon={<PaletteIcon size={15} />}
-              label="Appearance"
-            />
-            <SidebarTabButton
-              active={activeSettingsTab === 'model'}
-              onClick={() => openSettings('model')}
-              icon={<SparklesIcon size={15} />}
-              label="Intelligence"
-            />
-            <SidebarTabButton
-              active={activeSettingsTab === 'api'}
-              onClick={() => openSettings('api')}
-              icon={<SlidersIcon size={15} />}
-              label="Engine & API"
-            />
-            <SidebarTabButton
-              active={activeSettingsTab === 'personas'}
-              onClick={() => openSettings('personas')}
-              icon={<OrbitIcon size={15} />}
-              label="About EgSA"
-            />
-          </div>
-
-          <button
-            onClick={() => resetToDefaults()}
-            className="apple-button"
+        {/* macOS Settings Sidebar (Desktop / Tablet >= 640px) */}
+        {!isMobile && (
+          <div
             style={{
-              fontSize: 'var(--text-xs)',
-              color: 'var(--text-muted)',
-              justifyContent: 'flex-start',
-              padding: '0.45rem 0.65rem',
+              width: '210px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRight: '1px solid var(--hairline)',
+              padding: '1rem 0.65rem',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              flexShrink: 0,
+              userSelect: 'none',
             }}
           >
-            Reset to Defaults
-          </button>
-        </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <div
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  padding: '0.4rem 0.65rem 0.6rem',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                Preferences
+              </div>
+
+              <SidebarTabButton
+                active={activeSettingsTab === 'appearance'}
+                onClick={() => openSettings('appearance')}
+                icon={<PaletteIcon size={15} />}
+                label="Appearance"
+              />
+              <SidebarTabButton
+                active={activeSettingsTab === 'model'}
+                onClick={() => openSettings('model')}
+                icon={<SparklesIcon size={15} />}
+                label="Intelligence"
+              />
+              <SidebarTabButton
+                active={activeSettingsTab === 'api'}
+                onClick={() => openSettings('api')}
+                icon={<SlidersIcon size={15} />}
+                label="Engine & API"
+              />
+              <SidebarTabButton
+                active={activeSettingsTab === 'personas'}
+                onClick={() => openSettings('personas')}
+                icon={<OrbitIcon size={15} />}
+                label="About EgSA"
+              />
+            </div>
+
+            <button
+              onClick={() => resetToDefaults()}
+              className="apple-button"
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-muted)',
+                justifyContent: 'flex-start',
+                padding: '0.45rem 0.65rem',
+              }}
+            >
+              Reset to Defaults
+            </button>
+          </div>
+        )}
 
         {/* Settings Content Pane */}
         <div
@@ -197,7 +236,7 @@ export const SettingsModal: React.FC = () => {
           {/* Modal Header */}
           <div
             style={{
-              padding: '0.85rem 1.5rem',
+              padding: isMobile ? 'calc(0.65rem + var(--safe-area-top)) 1rem 0.65rem' : '0.85rem 1.5rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -223,8 +262,8 @@ export const SettingsModal: React.FC = () => {
               onClick={closeSettings}
               className="apple-button"
               style={{
-                width: '26px',
-                height: '26px',
+                width: '28px',
+                height: '28px',
                 padding: 0,
                 borderRadius: '50%',
                 color: 'var(--text-secondary)',
@@ -236,12 +275,56 @@ export const SettingsModal: React.FC = () => {
             </button>
           </div>
 
+          {/* Top Tabs Segment Strip for Mobile Viewports (< 640px) */}
+          {isMobile && (
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.4rem',
+                padding: '0.5rem 0.75rem',
+                borderBottom: '1px solid var(--hairline)',
+                backgroundColor: 'var(--bg-secondary)',
+                overflowX: 'auto',
+                scrollbarWidth: 'none',
+                WebkitOverflowScrolling: 'touch',
+                flexShrink: 0,
+              }}
+            >
+              <MobileTabPill
+                active={activeSettingsTab === 'appearance'}
+                onClick={() => openSettings('appearance')}
+                icon={<PaletteIcon size={13} />}
+                label="Appearance"
+              />
+              <MobileTabPill
+                active={activeSettingsTab === 'model'}
+                onClick={() => openSettings('model')}
+                icon={<SparklesIcon size={13} />}
+                label="Intelligence"
+              />
+              <MobileTabPill
+                active={activeSettingsTab === 'api'}
+                onClick={() => openSettings('api')}
+                icon={<SlidersIcon size={13} />}
+                label="Engine & API"
+              />
+              <MobileTabPill
+                active={activeSettingsTab === 'personas'}
+                onClick={() => openSettings('personas')}
+                icon={<OrbitIcon size={13} />}
+                label="About EgSA"
+              />
+            </div>
+          )}
+
           {/* Scrollable Settings Form */}
           <div
             style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '1.25rem 1.5rem',
+              padding: isMobile
+                ? '1rem clamp(0.75rem, 3vw, 1.25rem) calc(2.5rem + var(--safe-area-bottom))'
+                : '1.25rem 1.5rem',
               display: 'flex',
               flexDirection: 'column',
               gap: '1.25rem',
@@ -254,8 +337,8 @@ export const SettingsModal: React.FC = () => {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: '0.75rem',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
+                      gap: '0.65rem',
                       padding: '0.85rem',
                     }}
                   >
@@ -287,6 +370,7 @@ export const SettingsModal: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.75rem',
+                      flexWrap: 'wrap',
                     }}
                   >
                     {APPLE_ACCENTS.map((swatch) => {
@@ -515,7 +599,7 @@ export const SettingsModal: React.FC = () => {
                       <div
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
                           gap: '0.6rem',
                           padding: '0.85rem',
                         }}
@@ -586,7 +670,7 @@ export const SettingsModal: React.FC = () => {
                                   lineHeight: 1.25,
                                 }}
                               >
-                                {preset.defaultModel ? `Model: ${preset.defaultModel}` : 'Custom Config'}
+                                {preset.notes}
                               </span>
                             </button>
                           );
@@ -616,6 +700,8 @@ export const SettingsModal: React.FC = () => {
                             onChange={(e) => {
                               setAIConfig({ customEndpointUrl: e.target.value });
                               setTestResult(null);
+                              setAvailableModels([]);
+                              setModelsFetchError(null);
                             }}
                             placeholder="https://api.openai.com/v1/chat/completions"
                             style={{
@@ -633,80 +719,183 @@ export const SettingsModal: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Model ID Field */}
+                        {/* Live Model Retrieval & Selection */}
                         <div>
-                          <label
+                          <div
                             style={{
-                              display: 'block',
-                              fontSize: 'var(--text-xs)',
-                              fontWeight: 500,
-                              color: 'var(--text-secondary)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
                               marginBottom: '0.35rem',
                             }}
                           >
-                            Model Name / ID
-                          </label>
-                          <input
-                            type="text"
-                            value={aiConfig.customModelId || ''}
-                            onChange={(e) => {
-                              setAIConfig({ customModelId: e.target.value });
-                              setTestResult(null);
-                            }}
-                            placeholder="e.g. gpt-4o-mini, llama-3.3-70b-versatile, llama3.2, deepseek-chat"
-                            style={{
-                              width: '100%',
-                              padding: '0.5rem 0.65rem',
-                              fontSize: 'var(--text-xs)',
-                              backgroundColor: 'var(--bg-tertiary)',
-                              borderRadius: 'var(--radius-xs)',
-                              border: '1px solid var(--hairline)',
-                              fontFamily: 'monospace',
-                            }}
-                          />
+                            <label
+                              style={{
+                                fontSize: 'var(--text-xs)',
+                                fontWeight: 500,
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              Model Selection
+                            </label>
 
-                          {/* Quick model recommendations for the active preset */}
-                          {(() => {
-                            const preset =
-                              PROVIDER_PRESETS.find((p) => p.id === aiConfig.providerPreset) ||
-                              PROVIDER_PRESETS.find(
-                                (p) =>
-                                  aiConfig.customEndpointUrl &&
-                                  p.endpointUrl &&
-                                  aiConfig.customEndpointUrl.includes(p.id)
-                              );
-                            if (preset && preset.popularModels.length > 0) {
-                              return (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
-                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Popular:</span>
-                                  {preset.popularModels.map((m) => (
-                                    <button
-                                      key={m}
-                                      type="button"
-                                      onClick={() => {
-                                        setAIConfig({ customModelId: m });
-                                        setTestResult(null);
-                                      }}
-                                      style={{
-                                        fontSize: '0.68rem',
-                                        padding: '0.15rem 0.45rem',
-                                        borderRadius: 'var(--radius-full)',
-                                        border: `1px solid ${aiConfig.customModelId === m ? 'var(--accent-primary)' : 'var(--hairline)'}`,
-                                        backgroundColor: aiConfig.customModelId === m ? 'var(--accent-surface)' : 'var(--bg-tertiary)',
-                                        color: aiConfig.customModelId === m ? 'var(--accent-text)' : 'var(--text-secondary)',
-                                        cursor: 'pointer',
-                                        fontFamily: 'monospace',
-                                        transition: 'all var(--transition-fast)',
-                                      }}
-                                    >
-                                      {m}
-                                    </button>
-                                  ))}
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
+                            <button
+                              type="button"
+                              onClick={handleFetchModels}
+                              disabled={isFetchingModels || !aiConfig.customEndpointUrl}
+                              className="apple-button"
+                              style={{
+                                fontSize: '0.7rem',
+                                padding: '0.2rem 0.55rem',
+                                gap: '0.35rem',
+                                opacity: !aiConfig.customEndpointUrl ? 0.5 : 1,
+                                color: 'var(--accent-primary)',
+                                backgroundColor: 'var(--bg-tertiary)',
+                                borderRadius: 'var(--radius-xs)',
+                                border: '1px solid var(--hairline)',
+                                cursor: !aiConfig.customEndpointUrl ? 'not-allowed' : 'pointer',
+                              }}
+                              title="Query the endpoint to retrieve live list of available models"
+                            >
+                              <RefreshCwIcon
+                                size={12}
+                                style={{
+                                  animation: isFetchingModels ? 'spin 1s linear infinite' : 'none',
+                                }}
+                              />
+                              {isFetchingModels ? 'Querying Endpoint...' : 'Retrieve Models from Endpoint'}
+                            </button>
+                          </div>
+
+                          {/* Dropdown mode when models have been fetched */}
+                          {availableModels.length > 0 && !isManualModelEntry ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                              <select
+                                value={aiConfig.customModelId || ''}
+                                onChange={(e) => {
+                                  setAIConfig({ customModelId: e.target.value });
+                                  setTestResult(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.55rem 0.65rem',
+                                  fontSize: 'var(--text-xs)',
+                                  backgroundColor: 'var(--bg-tertiary)',
+                                  borderRadius: 'var(--radius-xs)',
+                                  border: '1px solid var(--hairline)',
+                                  color: 'var(--text-primary)',
+                                  fontFamily: 'monospace',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                {!aiConfig.customModelId && (
+                                  <option value="" disabled>
+                                    -- Select from {availableModels.length} models on endpoint --
+                                  </option>
+                                )}
+                                {availableModels.map((m) => (
+                                  <option key={m} value={m}>
+                                    {m}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    color: 'var(--success)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem',
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  <CheckIcon size={12} /> {availableModels.length} models retrieved live from endpoint
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsManualModelEntry(true)}
+                                  style={{
+                                    fontSize: '0.68rem',
+                                    color: 'var(--text-muted)',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline',
+                                  }}
+                                >
+                                  Type manually
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Manual entry mode */
+                            <div>
+                              <input
+                                type="text"
+                                value={aiConfig.customModelId || ''}
+                                onChange={(e) => {
+                                  setAIConfig({ customModelId: e.target.value });
+                                  setTestResult(null);
+                                }}
+                                placeholder="Click 'Retrieve Models from Endpoint' above or enter model name"
+                                style={{
+                                  width: '100%',
+                                  padding: '0.5rem 0.65rem',
+                                  fontSize: 'var(--text-xs)',
+                                  backgroundColor: 'var(--bg-tertiary)',
+                                  borderRadius: 'var(--radius-xs)',
+                                  border: '1px solid var(--hairline)',
+                                  fontFamily: 'monospace',
+                                }}
+                              />
+
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.25rem' }}>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  {availableModels.length === 0
+                                    ? "Click 'Retrieve Models from Endpoint' to query the live list of models."
+                                    : "Manual entry mode."}
+                                </span>
+                                {availableModels.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsManualModelEntry(false)}
+                                    style={{
+                                      fontSize: '0.68rem',
+                                      color: 'var(--accent-primary)',
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    Back to dropdown list ({availableModels.length})
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Fetch Error Feedback */}
+                          {modelsFetchError && (
+                            <div
+                              style={{
+                                marginTop: '0.35rem',
+                                padding: '0.4rem 0.6rem',
+                                borderRadius: 'var(--radius-xs)',
+                                backgroundColor: 'rgba(255, 59, 48, 0.08)',
+                                border: '1px solid rgba(255, 59, 48, 0.2)',
+                                fontSize: '0.68rem',
+                                color: 'var(--danger)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.35rem',
+                              }}
+                            >
+                              <AlertCircleIcon size={13} style={{ flexShrink: 0 }} />
+                              <span>{modelsFetchError}</span>
+                            </div>
+                          )}
                         </div>
 
                         {/* API Key Field */}
@@ -928,6 +1117,27 @@ export const SettingsModal: React.FC = () => {
                 </div>
               </GroupedSection>
             )}
+
+            {/* Mobile Reset to Defaults button */}
+            {isMobile && (
+              <div style={{ paddingTop: '0.5rem', paddingBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => resetToDefaults()}
+                  className="apple-button"
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-muted)',
+                    padding: '0.45rem 1.25rem',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    border: '1px solid var(--hairline)',
+                  }}
+                >
+                  Reset All to Defaults
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -935,7 +1145,38 @@ export const SettingsModal: React.FC = () => {
   );
 };
 
-/* --- macOS-style Reusable Subcomponents --- */
+/* --- macOS & iOS Reusable Subcomponents --- */
+
+const MobileTabPill: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}> = ({ active, onClick, icon, label }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.35rem',
+      padding: '0.35rem 0.75rem',
+      borderRadius: 'var(--radius-full)',
+      backgroundColor: active ? 'var(--accent-primary)' : 'var(--bg-canvas)',
+      color: active ? '#ffffff' : 'var(--text-secondary)',
+      border: `1px solid ${active ? 'var(--accent-primary)' : 'var(--hairline)'}`,
+      fontSize: 'var(--text-xs)',
+      fontWeight: active ? 600 : 400,
+      cursor: 'pointer',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
+      transition: 'all var(--transition-fast)',
+    }}
+  >
+    {icon}
+    <span>{label}</span>
+  </button>
+);
 
 const SidebarTabButton: React.FC<{
   active: boolean;
