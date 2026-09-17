@@ -19,7 +19,7 @@ import { Logo } from '../ui/Logo';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_MODELS, DEFAULT_PERSONAS, PROVIDER_PRESETS, type ProviderPreset } from '../../constants/defaults';
 import { testEndpointConnection, fetchAvailableModels, type ConnectionTestResult } from '../../services/ai/apiProvider';
-import type { FontSizeOption, ChatDensity } from '../../types';
+import type { FontSizeOption, ChatDensity, TextDirection, ArabicFontOption } from '../../types';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 
 export const SettingsModal: React.FC = () => {
@@ -35,6 +35,8 @@ export const SettingsModal: React.FC = () => {
   const setAccentColor = useSettingsStore((s) => s.setAccentColor);
   const setFontSize = useSettingsStore((s) => s.setFontSize);
   const setChatDensity = useSettingsStore((s) => s.setChatDensity);
+  const setTextDirection = useSettingsStore((s) => s.setTextDirection);
+  const setArabicFont = useSettingsStore((s) => s.setArabicFont);
   const setPreferences = useSettingsStore((s) => s.setPreferences);
 
   const setModel = useSettingsStore((s) => s.setModel);
@@ -425,6 +427,59 @@ export const SettingsModal: React.FC = () => {
                       ]}
                     />
                   </SettingsRow>
+
+                  <SettingsRow label="Arabic Typography Font" subtitle="Modern high-legibility Arabic typefaces">
+                    <AppleSegmentedControl<ArabicFontOption>
+                      value={preferences.arabicFont || 'ibm-plex'}
+                      onChange={setArabicFont}
+                      options={[
+                        { label: 'IBM Plex', value: 'ibm-plex' },
+                        { label: 'Cairo', value: 'cairo' },
+                        { label: 'Readex', value: 'readex' },
+                        { label: 'System', value: 'system' },
+                      ]}
+                    />
+                  </SettingsRow>
+
+                  <SettingsRow label="Text Direction" subtitle="Bi-directional default alignment for prompts and answers">
+                    <AppleSegmentedControl<TextDirection>
+                      value={preferences.textDirection || 'auto'}
+                      onChange={setTextDirection}
+                      options={[
+                        { label: 'Auto-Detect', value: 'auto' },
+                        { label: 'Force LTR', value: 'ltr' },
+                        { label: 'Force RTL', value: 'rtl' },
+                      ]}
+                    />
+                  </SettingsRow>
+
+                  <div
+                    style={{
+                      margin: '0.4rem 0.85rem 0.75rem',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-subtle)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.2rem',
+                    }}
+                  >
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                      Arabic Typography Sample ({preferences.arabicFont === 'cairo' ? 'Cairo' : preferences.arabicFont === 'readex' ? 'Readex Pro' : preferences.arabicFont === 'system' ? 'System' : 'IBM Plex Sans Arabic'})
+                    </div>
+                    <div
+                      dir="rtl"
+                      style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: 'var(--text-base)',
+                        lineHeight: 1.6,
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      وكالة الفضاء المصرية — Egyptian Space Agency (EgSA)
+                    </div>
+                  </div>
 
                   <SettingsRow label="Auto-scroll" subtitle="Automatically scroll to latest incoming responses">
                     <AppleToggle

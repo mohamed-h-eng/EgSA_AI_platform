@@ -79,6 +79,21 @@ export const App: React.FC = () => {
     }
   }, [preferences.customAccentColor]);
 
+  useEffect(() => {
+    if (preferences.arabicFont) {
+      document.documentElement.setAttribute('data-arabic-font', preferences.arabicFont);
+    }
+  }, [preferences.arabicFont]);
+
+  useEffect(() => {
+    if (preferences.textDirection && preferences.textDirection !== 'auto') {
+      document.documentElement.setAttribute('data-text-direction', preferences.textDirection);
+    } else {
+      document.documentElement.removeAttribute('data-text-direction');
+    }
+  }, [preferences.textDirection]);
+
+
   return (
     <div
       style={{

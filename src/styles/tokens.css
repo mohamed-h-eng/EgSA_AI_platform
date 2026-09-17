@@ -1,8 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Cairo:wght@400;500;600;700&family=Readex+Pro:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  /* Apple Typographic System */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", "Helvetica Neue", Arial, sans-serif;
+  /* High-Performance Arabic Typographic Options */
+  --font-arabic-ibm: "IBM Plex Sans Arabic", "Inter", -apple-system, sans-serif;
+  --font-arabic-cairo: "Cairo", "Inter", -apple-system, sans-serif;
+  --font-arabic-readex: "Readex Pro", "Inter", -apple-system, sans-serif;
+  --font-arabic-system: -apple-system, BlinkMacSystemFont, "Segoe UI", "Tahoma", Arial, sans-serif;
+
+  /* Active Arabic Typography Token (Default: IBM Plex Sans Arabic) */
+  --font-arabic: var(--font-arabic-ibm);
+
+  /* Apple Typographic System with Seamless Arabic Fallback */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", var(--font-arabic), "Helvetica Neue", Arial, sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
 
   /* Font Scale (Apple HIG rhythm) */
@@ -148,3 +157,18 @@
   --warning: #ffd60a;
   --danger: #ff453a;
 }
+
+/* Dynamic Arabic Typography Selectors */
+[data-arabic-font="ibm-plex"] {
+  --font-arabic: var(--font-arabic-ibm);
+}
+[data-arabic-font="cairo"] {
+  --font-arabic: var(--font-arabic-cairo);
+}
+[data-arabic-font="readex"] {
+  --font-arabic: var(--font-arabic-readex);
+}
+[data-arabic-font="system"] {
+  --font-arabic: var(--font-arabic-system);
+}
+

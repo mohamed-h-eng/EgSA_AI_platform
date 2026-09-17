@@ -1,5 +1,13 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig, type Plugin } from 'vite'
+import dns from 'node:dns';
+import react from '@vitejs/plugin-react';
+import { defineConfig, type Plugin } from 'vite';
+
+// Prioritize IPv4 DNS lookups in Node to prevent ETIMEDOUT on dual-stack hosts and Windows
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  // Ignore if not supported
+}
 
 function aiProxyPlugin(): Plugin {
   return {
@@ -36,28 +44,54 @@ function aiProxyPlugin(): Plugin {
             }
             const rawBody = Buffer.concat(chunks);
 
+            const isBodyAllowed = req.method !== 'GET' && req.method !== 'HEAD';
             const forwardHeaders: Record<string, string> = {
-              'Content-Type': (req.headers['content-type'] as string) || 'application/json',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 EgSA/2.0',
+              'Accept': (req.headers['accept'] as string) || 'application/json, text/plain, */*',
             };
-            if (req.headers['authorization']) {
-              forwardHeaders['Authorization'] = req.headers['authorization'] as string;
-            }
-            if (req.headers['x-api-key']) {
-              forwardHeaders['x-api-key'] = req.headers['x-api-key'] as string;
-            }
-            if (req.headers['http-referer']) {
-              forwardHeaders['HTTP-Referer'] = req.headers['http-referer'] as string;
-            }
-            if (req.headers['x-title']) {
-              forwardHeaders['X-Title'] = req.headers['x-title'] as string;
+
+            if (isBodyAllowed && req.headers['content-type']) {
+              forwardHeaders['Content-Type'] = req.headers['content-type'] as string;
+            } else if (isBodyAllowed) {
+              forwardHeaders['Content-Type'] = 'application/json';
             }
 
-            const isBodyAllowed = req.method !== 'GET' && req.method !== 'HEAD';
-            const targetRes = await fetch(targetUrl, {
-              method: req.method || 'POST',
+            for (const [key, val] of Object.entries(req.headers)) {
+              const lowerKey = key.toLowerCase();
+              if (
+                lowerKey === 'authorization' ||
+                lowerKey === 'x-api-key' ||
+                lowerKey === 'api-key' ||
+                lowerKey === 'http-referer' ||
+                lowerKey === 'x-title' ||
+                lowerKey === 'anthropic-version' ||
+                lowerKey.startsWith('x-')
+              ) {
+                if (lowerKey === 'x-target-url') continue;
+                if (typeof val === 'string') {
+                  forwardHeaders[key] = val;
+                }
+              }
+            }
+
+            const fetchOptions: RequestInit = {
+              method: req.method || (isBodyAllowed ? 'POST' : 'GET'),
               headers: forwardHeaders,
               body: isBodyAllowed && rawBody.length > 0 ? rawBody : undefined,
-            });
+            };
+
+            let targetRes: Response;
+            try {
+              targetRes = await fetch(targetUrl, fetchOptions);
+            } catch (fetchErr: any) {
+              // On Windows, localhost may resolve to IPv6 ::1 where local service is listening on IPv4 127.0.0.1
+              if (targetUrl.includes('localhost')) {
+                const altUrl = targetUrl.replace('localhost', '127.0.0.1');
+                targetRes = await fetch(altUrl, fetchOptions);
+              } else {
+                throw fetchErr;
+              }
+            }
 
             res.statusCode = targetRes.status;
             const contentType = targetRes.headers.get('content-type') || 'application/json';
@@ -69,18 +103,21 @@ function aiProxyPlugin(): Plugin {
             if (contentType.includes('text/event-stream')) {
               res.setHeader('Cache-Control', 'no-cache');
               res.setHeader('Connection', 'keep-alive');
-            }
-
-            if (targetRes.body) {
-              const reader = targetRes.body.getReader();
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                res.write(Buffer.from(value));
+              if (targetRes.body) {
+                const reader = targetRes.body.getReader();
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  res.write(Buffer.from(value));
+                }
               }
               res.end();
             } else {
-              res.end();
+              // For standard REST responses, arrayBuffer ensures gzip/deflate is decompressed
+              const arrayBuffer = await targetRes.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+              res.setHeader('Content-Length', String(buffer.length));
+              res.end(buffer);
             }
           } catch (err: any) {
             res.statusCode = 502;

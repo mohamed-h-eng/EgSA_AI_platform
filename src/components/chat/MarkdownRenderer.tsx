@@ -4,6 +4,7 @@ import { CopyIcon, CheckIcon } from '../ui/Icons';
 interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
+  direction?: 'ltr' | 'rtl' | 'auto';
 }
 
 function sanitizeStreamingMarkdown(text: string, isStreaming?: boolean): string {
@@ -59,11 +60,17 @@ function sanitizeStreamingMarkdown(text: string, isStreaming?: boolean): string 
   return sanitized;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming, direction = 'auto' }) => {
   const safeContent = sanitizeStreamingMarkdown(content, isStreaming);
   return (
-    <div className={`prose ${isStreaming ? 'is-streaming' : ''}`}>
-      {parseMarkdown(safeContent)}
+    <div
+      className={`prose ${isStreaming ? 'is-streaming' : ''}`}
+      dir={direction}
+      style={{
+        direction: direction === 'auto' ? undefined : direction,
+      }}
+    >
+      {parseMarkdown(safeContent, direction)}
       {isStreaming && <span className="stream-cursor" title="Streaming..." />}
     </div>
   );
@@ -106,7 +113,7 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
   );
 };
 
-function parseMarkdown(text: string): React.ReactNode[] {
+function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto'): React.ReactNode[] {
   if (!text) return [];
 
   const elements: React.ReactNode[] = [];
@@ -133,7 +140,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
     const flushParagraph = (key: string) => {
       if (currentParagraph.length > 0) {
         elements.push(
-          <p key={key}>
+          <p key={key} dir={direction}>
             {currentParagraph.map((pLine, i) => (
               <React.Fragment key={i}>
                 {renderInline(pLine)}
@@ -149,9 +156,9 @@ function parseMarkdown(text: string): React.ReactNode[] {
     const flushList = (key: string) => {
       if (inList && listItems.length > 0) {
         elements.push(
-          <ul key={key}>
+          <ul key={key} dir={direction}>
             {listItems.map((item, idx) => (
-              <li key={idx}>{renderInline(item)}</li>
+              <li key={idx} dir={direction}>{renderInline(item)}</li>
             ))}
           </ul>
         );
@@ -184,7 +191,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
 
         elements.push(
           <div key={key} className="table-wrapper">
-            <table>
+            <table dir={direction}>
               <thead>
                 <tr>
                   {headerCols.map((col, idx) => (
@@ -227,21 +234,21 @@ function parseMarkdown(text: string): React.ReactNode[] {
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
-        elements.push(<h1 key={`h1-${partIndex}-${lineIdx}`}>{renderInline(trimmed.slice(2))}</h1>);
+        elements.push(<h1 key={`h1-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(trimmed.slice(2))}</h1>);
         return;
       }
       if (trimmed.startsWith('## ')) {
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
-        elements.push(<h2 key={`h2-${partIndex}-${lineIdx}`}>{renderInline(trimmed.slice(3))}</h2>);
+        elements.push(<h2 key={`h2-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(trimmed.slice(3))}</h2>);
         return;
       }
       if (trimmed.startsWith('### ')) {
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
-        elements.push(<h3 key={`h3-${partIndex}-${lineIdx}`}>{renderInline(trimmed.slice(4))}</h3>);
+        elements.push(<h3 key={`h3-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(trimmed.slice(4))}</h3>);
         return;
       }
 
@@ -251,7 +258,7 @@ function parseMarkdown(text: string): React.ReactNode[] {
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
         elements.push(
-          <blockquote key={`bq-${partIndex}-${lineIdx}`}>
+          <blockquote key={`bq-${partIndex}-${lineIdx}`} dir={direction}>
             {renderInline(trimmed.slice(2))}
           </blockquote>
         );
@@ -313,7 +320,7 @@ function renderInline(text: string): React.ReactNode {
 
   return tokens.map((token, idx) => {
     if (token.startsWith('`') && token.endsWith('`') && token.length > 2) {
-      return <code key={idx}>{token.slice(1, -1)}</code>;
+      return <code key={idx} className="ltr-isolated">{token.slice(1, -1)}</code>;
     }
     if (token.startsWith('**') && token.endsWith('**') && token.length > 4) {
       return <strong key={idx}>{token.slice(2, -2)}</strong>;

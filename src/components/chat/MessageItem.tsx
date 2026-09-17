@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import type { ChatMessage } from '../../types';
+import type { ChatMessage, TextDirection } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { CopyIcon, CheckIcon, RefreshCwIcon, PencilIcon, ArrowUpIcon } from '../ui/Icons';
+import { CopyIcon, CheckIcon, RefreshCwIcon, PencilIcon, ArrowUpIcon, AlignLeftIcon, AlignRightIcon } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -14,6 +15,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
+
+  const globalDirection = useSettingsStore((s) => s.preferences.textDirection);
+  const [localDir, setLocalDir] = useState<TextDirection | undefined>(message.direction);
+
+  const effectiveDir: TextDirection = localDir || (globalDirection !== 'auto' ? globalDirection : 'auto');
+
+  const handleToggleDirection = () => {
+    // If auto or rtl, toggle to ltr; if ltr, toggle to rtl
+    const nextDir: TextDirection = effectiveDir === 'ltr' ? 'rtl' : 'ltr';
+    setLocalDir(nextDir);
+  };
 
   const isStreaming = useChatStore((s) => s.isStreaming);
   const regenerateResponse = useChatStore((s) => s.regenerateResponse);
@@ -72,6 +84,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
             <textarea
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
+              dir={effectiveDir}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -94,6 +107,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
                 fontFamily: 'inherit',
                 padding: 0,
                 minHeight: '48px',
+                unicodeBidi: 'plaintext',
+                textAlign: 'start',
               }}
             />
 
@@ -161,6 +176,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
         }}
       >
         <div
+          dir={effectiveDir}
           style={{
             maxWidth: 'min(88%, 680px)',
             backgroundColor: 'var(--msg-user-bg)',
@@ -172,6 +188,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
             wordBreak: 'break-word',
             whiteSpace: 'pre-wrap',
             boxShadow: 'var(--shadow-sm)',
+            unicodeBidi: 'plaintext',
+            textAlign: 'start',
           }}
         >
           {message.content}
@@ -204,6 +222,22 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
           >
             {copied ? <CheckIcon size={13} style={{ color: 'var(--success)' }} /> : <CopyIcon size={13} />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+
+          <button
+            onClick={handleToggleDirection}
+            className="apple-button"
+            style={{
+              padding: '0.2rem 0.45rem',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-xs)',
+              gap: '0.35rem',
+            }}
+            title={`Direction: ${effectiveDir.toUpperCase()} (Click to toggle)`}
+          >
+            {effectiveDir === 'ltr' ? <AlignLeftIcon size={13} /> : <AlignRightIcon size={13} />}
+            <span>{effectiveDir === 'auto' ? 'Auto' : effectiveDir.toUpperCase()}</span>
           </button>
 
           <button
@@ -242,10 +276,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
       }}
     >
       {/* Editorial Content Container */}
-      <div style={{ width: '100%', padding: '0.25rem 0' }}>
+      <div style={{ width: '100%', padding: '0.25rem 0' }} dir={effectiveDir}>
         <MarkdownRenderer
           content={message.content}
           isStreaming={message.status === 'streaming'}
+          direction={effectiveDir}
         />
 
         {message.error && (
@@ -293,6 +328,22 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
           >
             {copied ? <CheckIcon size={13} style={{ color: 'var(--success)' }} /> : <CopyIcon size={13} />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+
+          <button
+            onClick={handleToggleDirection}
+            className="apple-button"
+            style={{
+              padding: '0.2rem 0.45rem',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-xs)',
+              gap: '0.35rem',
+            }}
+            title={`Direction: ${effectiveDir.toUpperCase()} (Click to toggle)`}
+          >
+            {effectiveDir === 'ltr' ? <AlignLeftIcon size={13} /> : <AlignRightIcon size={13} />}
+            <span>{effectiveDir === 'auto' ? 'Auto' : effectiveDir.toUpperCase()}</span>
           </button>
 
           {isLatestAssistant && (

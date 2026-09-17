@@ -19,6 +19,7 @@ export interface ChatMessage {
   modelId?: string;
   stats?: TokenStats;
   error?: string;
+  direction?: TextDirection;
 }
 
 export interface ConversationSession {
@@ -61,6 +62,8 @@ export type ThemeMode = 'system' | 'light' | 'dark';
 export type FontSizeOption = 'sm' | 'md' | 'lg';
 export type ChatDensity = 'comfortable' | 'compact';
 export type BubbleStyle = 'modern' | 'minimal' | 'bordered';
+export type TextDirection = 'auto' | 'ltr' | 'rtl';
+export type ArabicFontOption = 'ibm-plex' | 'cairo' | 'readex' | 'system';
 
 export interface UserPreferences {
   theme: ThemeMode;
@@ -71,6 +74,8 @@ export interface UserPreferences {
   soundEffects: boolean;
   autoScroll: boolean;
   sendOnEnter: boolean;
+  textDirection: TextDirection;
+  arabicFont: ArabicFontOption;
 }
 
 export interface AIConfiguration {

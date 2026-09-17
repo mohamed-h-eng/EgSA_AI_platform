@@ -1,5 +1,5 @@
 import { createStore } from './createStore';
-import type { UserPreferences, AIConfiguration, ThemeMode, FontSizeOption, ChatDensity, BubbleStyle } from '../types';
+import type { UserPreferences, AIConfiguration, ThemeMode, FontSizeOption, ChatDensity, BubbleStyle, TextDirection, ArabicFontOption } from '../types';
 import { DEFAULT_PREFERENCES, DEFAULT_AI_CONFIG, DEFAULT_PERSONAS } from '../constants/defaults';
 
 interface SettingsState {
@@ -14,6 +14,8 @@ interface SettingsState {
   setFontSize: (size: FontSizeOption) => void;
   setChatDensity: (density: ChatDensity) => void;
   setBubbleStyle: (style: BubbleStyle) => void;
+  setTextDirection: (direction: TextDirection) => void;
+  setArabicFont: (font: ArabicFontOption) => void;
   setPreferences: (partial: Partial<UserPreferences>) => void;
 
   setModel: (modelId: string) => void;
@@ -81,6 +83,19 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
     }));
   },
 
+  setTextDirection: (textDirection) => {
+    set((state) => ({
+      preferences: { ...state.preferences, textDirection },
+    }));
+  },
+
+  setArabicFont: (arabicFont) => {
+    set((state) => ({
+      preferences: { ...state.preferences, arabicFont },
+    }));
+    document.documentElement.setAttribute('data-arabic-font', arabicFont);
+  },
+
   setPreferences: (partial) => {
     set((state) => ({
       preferences: { ...state.preferences, ...partial },
@@ -146,6 +161,7 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
       aiConfig: DEFAULT_AI_CONFIG,
     });
     document.documentElement.setAttribute('data-theme', DEFAULT_PREFERENCES.theme);
+    document.documentElement.setAttribute('data-arabic-font', DEFAULT_PREFERENCES.arabicFont);
     document.documentElement.style.removeProperty('--accent-primary');
     document.documentElement.style.removeProperty('--chat-font-size');
   },

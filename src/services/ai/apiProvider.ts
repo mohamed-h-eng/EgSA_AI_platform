@@ -55,14 +55,82 @@ export function normalizeEndpointUrl(url: string): string {
 }
 
 /**
- * Resolves request URL, routing through dev server proxy if requested
+ * Resolves request URL, routing through dev server proxy if requested.
+ * Note: Does not mutate the path of targetUrl so both chat and models endpoints are respected.
  */
 export function resolveRequestUrl(targetUrl: string, useProxy?: boolean): string {
-  const normalized = normalizeEndpointUrl(targetUrl);
   if (useProxy && typeof window !== 'undefined') {
-    return `/api/ai-proxy?target=${encodeURIComponent(normalized)}`;
+    return `/api/ai-proxy?target=${encodeURIComponent(targetUrl)}`;
   }
-  return normalized;
+  return targetUrl;
+}
+
+/**
+ * Builds prioritized candidate URLs for live model discovery based on provider conventions.
+ */
+export function buildModelCandidateUrls(rawUrl: string): string[] {
+  const clean = rawUrl.trim().replace(/\/+$/, '');
+  if (!clean) return [];
+
+  const candidates: string[] = [];
+
+  // If user entered a chat completions endpoint (e.g. .../v1/chat/completions or .../chat/completions)
+  if (clean.includes('/chat/completions')) {
+    candidates.push(clean.replace(/\/chat\/completions.*$/, '/models'));
+  } else if (clean.includes('/completions')) {
+    candidates.push(clean.replace(/\/completions.*$/, '/models'));
+  }
+
+  // If ends in /v1
+  if (clean.endsWith('/v1')) {
+    candidates.push(`${clean}/models`);
+  }
+
+  try {
+    const parsed = new URL(clean);
+    const origin = parsed.origin;
+
+    // Ollama detection (port 11434 or hostname containing ollama)
+    if (parsed.port === '11434' || parsed.hostname.includes('ollama')) {
+      candidates.push(`${origin}/api/tags`);
+      candidates.push(`${origin}/v1/models`);
+    }
+
+    // Groq detection
+    if (parsed.hostname.includes('groq.com')) {
+      candidates.push(`${origin}/openai/v1/models`);
+    }
+
+    // OpenRouter detection
+    if (parsed.hostname.includes('openrouter.ai')) {
+      candidates.push(`${origin}/api/v1/models`);
+    }
+
+    // DeepSeek detection
+    if (parsed.hostname.includes('deepseek.com')) {
+      candidates.push(`${origin}/models`);
+      candidates.push(`${origin}/v1/models`);
+    }
+
+    // LM Studio or local port 1234
+    if (parsed.port === '1234') {
+      candidates.push(`${origin}/v1/models`);
+      candidates.push(`${origin}/models`);
+    }
+
+    // General common fallbacks
+    candidates.push(`${origin}/v1/models`);
+    candidates.push(`${origin}/api/v1/models`);
+    candidates.push(`${origin}/openai/v1/models`);
+    candidates.push(`${origin}/models`);
+    candidates.push(`${origin}/api/tags`);
+  } catch {
+    candidates.push(clean.replace(/\/chat\/completions.*$/, '/models'));
+    candidates.push(`${clean}/models`);
+    candidates.push(`${clean}/v1/models`);
+  }
+
+  return Array.from(new Set(candidates)).filter(Boolean);
 }
 
 /**
@@ -78,44 +146,27 @@ export async function fetchAvailableModels(options: {
     return { ok: false, models: [], error: 'Please enter an endpoint URL first.' };
   }
 
-  const candidateUrls: string[] = [];
-
-  if (rawUrl.endsWith('/chat/completions')) {
-    candidateUrls.push(rawUrl.replace(/\/chat\/completions$/, '/models'));
-  } else if (rawUrl.endsWith('/completions')) {
-    candidateUrls.push(rawUrl.replace(/\/completions$/, '/models'));
-  } else if (rawUrl.endsWith('/v1')) {
-    candidateUrls.push(`${rawUrl}/models`);
-  } else if (/:\d{4,5}$/.test(rawUrl)) {
-    candidateUrls.push(`${rawUrl}/v1/models`);
-    candidateUrls.push(`${rawUrl}/api/tags`);
-    candidateUrls.push(`${rawUrl}/models`);
-  } else {
-    candidateUrls.push(`${rawUrl}/models`);
-    candidateUrls.push(`${rawUrl}/v1/models`);
-  }
-
-  if (rawUrl.includes('11434') || rawUrl.includes('ollama')) {
-    const base = rawUrl.split('/v1')[0].split('/api')[0].replace(/\/+$/, '');
-    candidateUrls.push(`${base}/api/tags`);
-    candidateUrls.push(`${base}/v1/models`);
-  }
-
-  const uniqueCandidates = Array.from(new Set(candidateUrls));
+  const candidateUrls = buildModelCandidateUrls(rawUrl);
   let lastError = '';
+  let authError = '';
 
-  for (const candidate of uniqueCandidates) {
+  for (const candidate of candidateUrls) {
     try {
       const target = resolveRequestUrl(candidate, options.useProxy);
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       };
       if (options.apiKey?.trim()) {
         headers['Authorization'] = `Bearer ${options.apiKey.trim()}`;
+        headers['x-api-key'] = options.apiKey.trim();
+        headers['api-key'] = options.apiKey.trim();
       }
       if (candidate.includes('openrouter.ai') && typeof window !== 'undefined') {
         headers['HTTP-Referer'] = window.location.origin;
         headers['X-Title'] = 'EgSA AI Platform';
+      }
+      if (candidate.includes('anthropic.com')) {
+        headers['anthropic-version'] = '2023-06-01';
       }
 
       const res = await fetch(target, { method: 'GET', headers });
@@ -127,6 +178,10 @@ export async function fetchAvailableModels(options: {
         } catch {
           errText = await res.text().catch(() => '');
         }
+
+        if (res.status === 401 || res.status === 403) {
+          authError = `HTTP ${res.status}: ${errText || 'Authentication required'}. Please enter your API Key below to retrieve models.`;
+        }
         lastError = `HTTP ${res.status}: ${errText || res.statusText}`;
         continue;
       }
@@ -134,22 +189,28 @@ export async function fetchAvailableModels(options: {
       const json = await res.json();
       let modelList: string[] = [];
 
-      // Standard OpenAI format: { data: [{ id: "..." }, ...] }
+      // Standard OpenAI / OpenRouter format: { data: [{ id: "..." }, ...] }
       if (Array.isArray(json.data)) {
         modelList = json.data
-          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name))
+          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name || m.model))
           .filter(Boolean);
       }
       // Ollama format: { models: [{ name: "..." }, ...] }
       else if (Array.isArray(json.models)) {
         modelList = json.models
-          .map((m: any) => (typeof m === 'string' ? m : m.name || m.id))
+          .map((m: any) => (typeof m === 'string' ? m : m.name || m.model || m.id))
+          .filter(Boolean);
+      }
+      // Cloudflare / Azure format: { result: [{ id: "..." }, ...] }
+      else if (Array.isArray(json.result)) {
+        modelList = json.result
+          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name || m.model))
           .filter(Boolean);
       }
       // Flat array
       else if (Array.isArray(json)) {
         modelList = json
-          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name))
+          .map((m: any) => (typeof m === 'string' ? m : m.id || m.name || m.model))
           .filter(Boolean);
       }
 
@@ -165,7 +226,7 @@ export async function fetchAvailableModels(options: {
   return {
     ok: false,
     models: [],
-    error: lastError || 'Could not retrieve models from endpoint.',
+    error: authError || lastError || 'Could not retrieve models from endpoint. Verify the URL and API key.',
   };
 }
 

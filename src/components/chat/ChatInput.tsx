@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUpIcon, StopCircleIcon } from '../ui/Icons';
+import { ArrowUpIcon, StopCircleIcon, AlignLeftIcon, AlignRightIcon } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_PERSONAS } from '../../constants/defaults';
+import type { TextDirection } from '../../types';
 
 export const ChatInput: React.FC = () => {
   const [input, setInput] = useState('');
@@ -14,6 +15,15 @@ export const ChatInput: React.FC = () => {
 
   const preferences = useSettingsStore((s) => s.preferences);
   const aiConfig = useSettingsStore((s) => s.aiConfig);
+
+  const [directionOverride, setDirectionOverride] = useState<TextDirection | null>(null);
+  const inputDirection: TextDirection = directionOverride ?? (preferences.textDirection || 'auto');
+
+  const toggleInputDirection = () => {
+    const next: TextDirection =
+      inputDirection === 'auto' ? 'ltr' : inputDirection === 'ltr' ? 'rtl' : 'auto';
+    setDirectionOverride(next);
+  };
 
   const activePersona = DEFAULT_PERSONAS.find((p) => p.id === aiConfig.activePersonaId) || DEFAULT_PERSONAS[0];
 
@@ -219,6 +229,7 @@ export const ChatInput: React.FC = () => {
             onKeyDown={handleKeyDown}
             placeholder={`Ask ${activePersona.name}...`}
             rows={1}
+            dir={inputDirection}
             style={{
               flex: 1,
               background: 'transparent',
@@ -233,8 +244,38 @@ export const ChatInput: React.FC = () => {
               minHeight: '26px',
               lineHeight: 1.5,
               fontFamily: 'inherit',
+              unicodeBidi: 'plaintext',
+              textAlign: 'start',
             }}
           />
+
+          {/* Text Direction Indicator & Quick Toggle */}
+          <button
+            type="button"
+            onClick={toggleInputDirection}
+            style={{
+              height: '28px',
+              padding: '0 0.45rem',
+              borderRadius: 'var(--radius-full)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.2rem',
+              color: inputDirection !== 'auto' ? 'var(--accent-primary)' : 'var(--text-muted)',
+              backgroundColor: inputDirection !== 'auto' ? 'var(--accent-surface)' : 'transparent',
+              border: inputDirection !== 'auto' ? '1px solid var(--accent-surface)' : '1px solid transparent',
+              fontSize: '0.6875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              flexShrink: 0,
+              marginBottom: '3px',
+              transition: 'all var(--transition-fast)',
+            }}
+            title={`Prompt text direction: ${inputDirection.toUpperCase()}. Click to cycle Auto, LTR, RTL.`}
+          >
+            {inputDirection === 'ltr' ? <AlignLeftIcon size={13} /> : <AlignRightIcon size={13} />}
+            <span>{inputDirection === 'auto' ? 'Auto' : inputDirection.toUpperCase()}</span>
+          </button>
 
           {/* Action Button: Send or Stop */}
           {isStreaming ? (

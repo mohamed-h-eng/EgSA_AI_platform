@@ -226,6 +226,48 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
   background: transparent !important;
 }
 
+/* Bi-directional Text & Language Direction System */
+[dir="auto"] {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+[dir="ltr"], [data-text-direction="ltr"] {
+  direction: ltr;
+  text-align: left;
+}
+
+[dir="rtl"], [data-text-direction="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+/* Strict LTR isolation for code, mathematics, formulas, and telemetry */
+pre,
+code,
+.code-block-container,
+.code-block-header,
+.code-block-content,
+.ltr-isolated {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: isolate !important;
+}
+
+/* Arabic typography refinements */
+[dir="rtl"],
+[data-text-direction="rtl"],
+[data-arabic-font] {
+  font-feature-settings: "cv01", "cv02", "liga", "clig", "calt";
+}
+
+[dir="rtl"] .prose,
+[data-text-direction="rtl"] .prose,
+.prose[dir="rtl"] {
+  letter-spacing: normal !important;
+  line-height: 1.75;
+}
+
 /* Apple Intelligence Prose / Editorial Layout */
 .prose {
   font-size: var(--chat-font-size, var(--text-base));
@@ -236,6 +278,8 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
 
 .prose p {
   margin-bottom: 0.85rem;
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
 .prose p:last-child {
@@ -249,6 +293,8 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
   letter-spacing: -0.015em;
   margin-top: 1.4rem;
   margin-bottom: 0.5rem;
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
 .prose h1 { font-size: var(--text-xl); font-weight: 700; }
@@ -256,8 +302,9 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
 .prose h3 { font-size: var(--text-base); font-weight: 600; }
 
 .prose ul, .prose ol {
-  margin-left: 1.3rem;
+  padding-inline-start: 1.3rem;
   margin-bottom: 0.85rem;
+  unicode-bidi: plaintext;
 }
 
 .prose li {
@@ -277,6 +324,8 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
   padding: 0.15rem 0.4rem;
   border-radius: var(--radius-xs);
   border: 1px solid var(--code-border);
+  direction: ltr !important;
+  unicode-bidi: isolate !important;
 }
 
 .code-block-container {
@@ -287,6 +336,7 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-subtle);
+  direction: ltr !important;
 }
 
 .code-block-header {
@@ -299,6 +349,7 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  direction: ltr !important;
 }
 
 .code-block-content {
@@ -308,13 +359,18 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
   font-size: 0.85rem;
   line-height: 1.6;
   color: var(--code-text);
+  direction: ltr !important;
+  text-align: left !important;
 }
 
 .prose blockquote {
-  border-left: 3px solid var(--accent-primary);
-  padding-left: 0.9rem;
+  border-inline-start: 3px solid var(--accent-primary);
+  padding-inline-start: 0.9rem;
+  padding-inline-end: 0;
   margin: 0.85rem 0;
   color: var(--text-secondary);
+  unicode-bidi: plaintext;
+  text-align: start;
 }
 
 .table-wrapper {
@@ -337,8 +393,9 @@ input:focus-visible:not(.borderless-input), textarea:focus-visible:not(.chat-tex
 .prose th, .prose td {
   padding: 0.6rem 0.9rem;
   border: 1px solid var(--hairline);
-  text-align: left;
+  text-align: start;
   line-height: 1.5;
+  unicode-bidi: plaintext;
 }
 
 .prose th {

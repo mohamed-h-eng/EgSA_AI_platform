@@ -263,6 +263,34 @@ export const EyeOffIcon: React.FC<IconProps> = ({ size = 18, className = '', ...
   </svg>
 );
 
+export const AlignLeftIcon: React.FC<IconProps> = ({ size = 18, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <line x1="21" x2="3" y1="6" y2="6" />
+    <line x1="15" x2="3" y1="12" y2="12" />
+    <line x1="17" x2="3" y1="18" y2="18" />
+  </svg>
+);
+
+export const AlignRightIcon: React.FC<IconProps> = ({ size = 18, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <line x1="21" x2="3" y1="6" y2="6" />
+    <line x1="21" x2="9" y1="12" y2="12" />
+    <line x1="21" x2="7" y1="18" y2="18" />
+  </svg>
+);
+
+export const LanguagesIcon: React.FC<IconProps> = ({ size = 18, className = '', ...props }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+    <path d="m5 8 6 6" />
+    <path d="m4 14 6-6 2-3" />
+    <path d="M2 5h12" />
+    <path d="M7 2h1" />
+    <path d="m22 22-5-10-5 10" />
+    <path d="M14 18h6" />
+  </svg>
+);
+
+
 
 
 

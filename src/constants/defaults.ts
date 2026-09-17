@@ -60,7 +60,7 @@ export const DEFAULT_PERSONAS: AIPersona[] = [
     starterPrompts: [
       'Show telemetry status for our low Earth orbit satellite',
       'Explain ADCS reaction wheel desaturation maneuvers',
-      'How do we calibrate multispectral sensors against atmospheric scattering?',
+      'ما هي أحدث مهام وكالة الفضاء المصرية في مراقبة الأرض وتطوير الأقمار الصناعية؟',
     ],
   },
   {
@@ -92,7 +92,7 @@ export const DEFAULT_PERSONAS: AIPersona[] = [
     starterPrompts: [
       'Give me an overview of modern web design principles',
       'How does streaming HTTP chunked transfer encoding work?',
-      'Help me draft a project architecture proposal',
+      'اشرح لي بلغة بسيطة كيفية عمل مدارات الأقمار الصناعية المتزامنة مع الشمس',
     ],
   },
   {
@@ -121,6 +121,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   soundEffects: false,
   autoScroll: true,
   sendOnEnter: true,
+  textDirection: 'auto',
+  arabicFont: 'ibm-plex',
 };
 
 export interface ProviderPreset {
