@@ -73,6 +73,13 @@ export function createStore<T>(creator: StateCreator<T>, persistKey?: string): U
             merged[key] = savedVal;
           }
         }
+        // Ensure runtime streaming flags are never left stuck in locked state
+        if ('isStreaming' in merged) {
+          merged.isStreaming = false;
+        }
+        if ('abortStream' in merged) {
+          merged.abortStream = null;
+        }
         state = merged;
       } else {
         state = initialCreatedState;

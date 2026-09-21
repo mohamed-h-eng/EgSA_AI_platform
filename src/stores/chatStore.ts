@@ -44,19 +44,7 @@ const createInitialSession = (): ConversationSession => {
     personaId: persona.id,
     systemPrompt: persona.systemPrompt,
     temperature: persona.temperature,
-    messages: [
-      {
-        id: generateId(),
-        role: 'assistant',
-        content: `**EgSA AI Platform Online**.\n\n` +
-          `Active Persona: **${persona.name}** (${persona.avatar})\n` +
-          `Calibrated for *${persona.tagline}*.\n\n` +
-          `Feel free to ask a technical question or choose one of the starter prompts below!`,
-        timestamp: Date.now(),
-        status: 'complete',
-        modelId: settings.aiConfig.activeModelId,
-      },
-    ],
+    messages: [],
   };
 };
 
@@ -84,16 +72,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       personaId: persona.id,
       systemPrompt: persona.systemPrompt,
       temperature: persona.temperature,
-      messages: [
-        {
-          id: generateId(),
-          role: 'assistant',
-          content: `**${persona.name} Ready** (${persona.avatar})\n\n${persona.description}\n\nHow can I help you today?`,
-          timestamp: Date.now(),
-          status: 'complete',
-          modelId: settings.aiConfig.activeModelId,
-        },
-      ],
+      messages: [],
     };
 
     set((state) => ({
@@ -149,11 +128,18 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content: string) => {
-    const { sessions, activeSessionId, isStreaming } = get();
-    if (!content.trim() || isStreaming || !activeSessionId) return;
+    const state = get();
+    if (!content.trim() || state.isStreaming) return;
 
-    const currentSession = sessions.find((s) => s.id === activeSessionId);
-    if (!currentSession) return;
+    let targetSessionId = state.activeSessionId;
+    let currentSession = state.sessions.find((s) => s.id === targetSessionId);
+
+    // Auto-create or select session if none is active
+    if (!currentSession) {
+      targetSessionId = get().createNewSession();
+      currentSession = get().sessions.find((s) => s.id === targetSessionId);
+      if (!currentSession) return;
+    }
 
     const settings = useSettingsStore.getState();
 
@@ -185,32 +171,40 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       ? content.trim().slice(0, 32) + (content.trim().length > 32 ? '...' : '')
       : currentSession.title;
 
-    const updatedMessages = [...currentSession.messages, userMessage, assistantPlaceholder];
+    // Filter out initial boilerplate assistant greeting if this is the first user prompt
+    const baseMessages = currentSession.messages.filter(
+      (m, idx) => !(idx === 0 && m.role === 'assistant' && currentSession!.messages.length === 1)
+    );
 
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === activeSessionId
+    const updatedMessages = [...baseMessages, userMessage, assistantPlaceholder];
+
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === targetSessionId
           ? {
-              ...s,
+              ...sess,
               title: nextTitle,
               updatedAt: Date.now(),
               messages: updatedMessages,
             }
-          : s
+          : sess
       ),
       isStreaming: true,
     }));
 
     const provider = providerRegistry.getActiveProvider(settings.aiConfig);
 
-    const historyForLLM = updatedMessages.slice(0, -1).map((m) => ({
+    // Clean history ensuring it begins with user message (required by modern LLM APIs)
+    const rawHistory = updatedMessages.slice(0, -1).map((m) => ({
       role: m.role,
       content: m.content,
     }));
+    const firstUserIdx = rawHistory.findIndex((m) => m.role === 'user');
+    const historyForLLM = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : rawHistory;
 
     const smoothBuffer = new SmoothStreamBuffer((displayedContent, isDone, stats) => {
-      set((state) => {
-        const active = state.sessions.find((s) => s.id === activeSessionId);
+      set((s) => {
+        const active = s.sessions.find((sess) => sess.id === targetSessionId);
         if (!active) return {};
 
         const msgs = active.messages.map((msg) => {
@@ -226,11 +220,11 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
         });
 
         return {
-          sessions: state.sessions.map((s) =>
-            s.id === activeSessionId ? { ...s, messages: msgs } : s
+          sessions: s.sessions.map((sess) =>
+            sess.id === targetSessionId ? { ...sess, messages: msgs } : sess
           ),
           isStreaming: !isDone,
-          abortStream: isDone ? null : state.abortStream,
+          abortStream: isDone ? null : s.abortStream,
         };
       });
     });
@@ -249,8 +243,8 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
         },
         (err: Error) => {
           smoothBuffer.abort();
-          set((state) => {
-            const active = state.sessions.find((s) => s.id === activeSessionId);
+          set((s) => {
+            const active = s.sessions.find((sess) => sess.id === targetSessionId);
             if (!active) return { isStreaming: false, abortStream: null };
 
             const msgs = active.messages.map((msg) => {
@@ -268,8 +262,8 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
             });
 
             return {
-              sessions: state.sessions.map((s) =>
-                s.id === activeSessionId ? { ...s, messages: msgs } : s
+              sessions: s.sessions.map((sess) =>
+                sess.id === targetSessionId ? { ...sess, messages: msgs } : sess
               ),
               isStreaming: false,
               abortStream: null,
@@ -287,7 +281,30 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
     } catch (err: any) {
       console.error('Failed to launch LLM stream', err);
       smoothBuffer.abort();
-      set({ isStreaming: false, abortStream: null });
+      set((s) => {
+        const active = s.sessions.find((sess) => sess.id === targetSessionId);
+        if (!active) return { isStreaming: false, abortStream: null };
+
+        const msgs = active.messages.map((msg) => {
+          if (msg.id === assistantMessageId) {
+            return {
+              ...msg,
+              content: `⚠️ **Connection Error**: ${err.message || 'Failed to connect'}\n\nPlease check your endpoint URL, API key, and model ID in **Preferences > Engine & API**.`,
+              status: 'error',
+              error: err.message,
+            } as ChatMessage;
+          }
+          return msg;
+        });
+
+        return {
+          sessions: s.sessions.map((sess) =>
+            sess.id === targetSessionId ? { ...sess, messages: msgs } : sess
+          ),
+          isStreaming: false,
+          abortStream: null,
+        };
+      });
     }
   },
 

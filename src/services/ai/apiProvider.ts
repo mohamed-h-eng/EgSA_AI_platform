@@ -1,5 +1,5 @@
 import type { LLMProvider } from './base';
-import type { LLMRequestParams, StreamChunk, TokenStats } from '../../types';
+import type { LLMRequestParams, StreamChunk } from '../../types';
 
 export interface APIProviderOptions {
   endpointUrl: string;
@@ -393,9 +393,25 @@ export class CustomAPIProvider implements LLMProvider {
       params.modelId ||
       'gpt-4o-mini';
 
+    const messagesPayload: Array<{ role: string; content: string }> = [];
+    if (params.systemPrompt?.trim()) {
+      messagesPayload.push({
+        role: 'system',
+        content: params.systemPrompt.trim(),
+      });
+    }
+    for (const msg of params.messages) {
+      if (msg.role !== 'system') {
+        messagesPayload.push({
+          role: msg.role,
+          content: msg.content,
+        });
+      }
+    }
+
     const bodyStr = JSON.stringify({
       model: effectiveModel,
-      messages: params.messages,
+      messages: messagesPayload,
       temperature: params.temperature ?? 0.7,
       max_tokens: params.maxTokens ?? 2048,
       stream: true,

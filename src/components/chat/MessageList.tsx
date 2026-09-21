@@ -26,7 +26,8 @@ export const MessageList: React.FC = () => {
   const messages = useMemo(() => currentSession?.messages || [], [currentSession?.messages]);
   const prevMessageCountRef = useRef(messages.length);
 
-  const activePersona = DEFAULT_PERSONAS.find((p) => p.id === aiConfig.activePersonaId) || DEFAULT_PERSONAS[0];
+  const sessionPersonaId = currentSession?.personaId || aiConfig.activePersonaId;
+  const activePersona = DEFAULT_PERSONAS.find((p) => p.id === sessionPersonaId) || DEFAULT_PERSONAS[0];
 
   const autoScrollToBottom = () => {
     if (!scrollContainerRef.current) return;
@@ -151,7 +152,9 @@ export const MessageList: React.FC = () => {
     }, 450);
   };
 
-  const isEmptySession = messages.length === 0;
+  const isEmptySession =
+    messages.length === 0 ||
+    (messages.length === 1 && messages[0].role === 'assistant');
 
   return (
     <div
@@ -249,7 +252,11 @@ export const MessageList: React.FC = () => {
                 {activePersona.starterPrompts.map((prompt, idx) => (
                   <button
                     key={idx}
-                    onClick={() => sendMessage(prompt)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      sendMessage(prompt);
+                    }}
                     disabled={isStreaming}
                     className="apple-card"
                     style={{
@@ -258,18 +265,24 @@ export const MessageList: React.FC = () => {
                       fontSize: 'var(--text-sm)',
                       color: 'var(--text-secondary)',
                       lineHeight: 1.4,
-                      cursor: 'pointer',
+                      cursor: isStreaming ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      opacity: isStreaming ? 0.6 : 1,
+                      transition: 'border-color var(--transition-fast), color var(--transition-fast), transform 0.12s ease',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border-muted)';
-                      e.currentTarget.style.color = 'var(--text-primary)';
+                      if (!isStreaming) {
+                        e.currentTarget.style.borderColor = 'var(--border-muted)';
+                        e.currentTarget.style.color = 'var(--text-primary)';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
+                      if (!isStreaming) {
+                        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                        e.currentTarget.style.color = 'var(--text-secondary)';
+                      }
                     }}
                   >
                     <span>{prompt}</span>
