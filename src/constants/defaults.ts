@@ -1,4 +1,15 @@
-import type { AIModel, AIPersona, UserPreferences, AIConfiguration } from '../types';
+import type {
+  AIModel,
+  AIPersona,
+  UserPreferences,
+  AIConfiguration,
+  ProjectDefinition,
+  KnowledgeDocument,
+  DocumentType,
+  ApprovalStatus,
+  DocumentClassification,
+  KnowledgeDepth,
+} from '../types';
 
 export const DEFAULT_MODELS: AIModel[] = [
   {
@@ -224,4 +235,96 @@ export const DEFAULT_AI_CONFIG: AIConfiguration = {
   useProxy: true,
 };
 
+// --- Engineering Knowledge Copilot: pilot projects & document metadata (Spec Section 12.2) ---
+
+export const DOCUMENT_TYPE_OPTIONS: DocumentType[] = ['TRS', 'SRS', 'ICD', 'Design', 'Test', 'Report', 'Other'];
+
+export const APPROVAL_STATUS_OPTIONS: ApprovalStatus[] = ['Draft', 'In Review', 'Approved', 'Obsolete'];
+
+export const CLASSIFICATION_OPTIONS: DocumentClassification[] = [
+  'Public',
+  'Internal',
+  'Project Restricted',
+  'Confidential',
+];
+
+// Knowledge Copilot empty-state suggestions. The first two hit the indexed seed ADCS SRS; the deep
+// one also asks about the EPS ICD, which is only answerable once it is indexed, so it shows the
+// per-sub-question "Not covered" path (KB-011) until then.
+export const KNOWLEDGE_SUGGESTIONS: Array<{ question: string; depth: KnowledgeDepth }> = [
+  { question: 'What is the ADCS pointing accuracy requirement?', depth: 'quick' },
+  { question: 'How does the ADCS detumble after separation?', depth: 'quick' },
+  { question: 'What are the ADCS safe mode rules and the EPS primary bus voltage?', depth: 'deep' },
+];
+
+export const DEFAULT_PROJECTS: ProjectDefinition[] = [
+  {
+    id: 'orbit-1-sat',
+    name: 'Orbit-1 Satellite Platform',
+    subsystems: ['ADCS', 'Power (EPS)', 'Communications', 'Thermal', 'Structure', 'On-Board Computer'],
+  },
+  {
+    id: 'ground-segment',
+    name: 'Ground Segment',
+    subsystems: ['Mission Control', 'Telemetry & Command', 'Data Processing'],
+  },
+];
+
+// Seed rows so the Knowledge Base admin view has representative content before real
+// ingestion (KB-001..KB-005) is wired up. Replace with API-loaded documents once
+// GET /api/documents exists.
+export const DEFAULT_DOCUMENTS: KnowledgeDocument[] = [
+  {
+    id: 'seed-adcs-srs',
+    title: 'ADCS Software Requirements Specification',
+    fileName: 'ADCS_SRS_RevC.pdf',
+    fileSizeBytes: 2_150_000,
+    project: 'orbit-1-sat',
+    subsystem: 'ADCS',
+    documentId: 'EGSA-ADCS-SRS-001',
+    revision: 'C',
+    documentType: 'SRS',
+    approvalStatus: 'Approved',
+    classification: 'Project Restricted',
+    pageCount: 84,
+    status: 'indexed',
+    uploadedAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
+    updatedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+    indexedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+  },
+  {
+    id: 'seed-eps-icd',
+    title: 'Power Subsystem Interface Control Document',
+    fileName: 'EPS_ICD_RevA.pdf',
+    fileSizeBytes: 980_000,
+    project: 'orbit-1-sat',
+    subsystem: 'Power (EPS)',
+    documentId: 'EGSA-EPS-ICD-002',
+    revision: 'A',
+    documentType: 'ICD',
+    approvalStatus: 'In Review',
+    classification: 'Internal',
+    pageCount: 36,
+    status: 'indexing',
+    uploadedAt: Date.now() - 2 * 60 * 60 * 1000,
+    updatedAt: Date.now() - 2 * 60 * 60 * 1000,
+  },
+  {
+    id: 'seed-comms-test',
+    title: 'Communications Subsystem Test Report',
+    fileName: 'COMMS_TestReport_RevB.scan.pdf',
+    fileSizeBytes: 4_400_000,
+    project: 'orbit-1-sat',
+    subsystem: 'Communications',
+    documentId: 'EGSA-COMMS-TR-014',
+    revision: 'B',
+    documentType: 'Test',
+    approvalStatus: 'Approved',
+    classification: 'Internal',
+    status: 'error',
+    errorMessage: 'OCR quality too low to index reliably — scanned document needs re-submission.',
+    uploadedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+    updatedAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+  },
+];
 

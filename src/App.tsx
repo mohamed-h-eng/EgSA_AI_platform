@@ -1,14 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
-import { Header } from './components/layout/Header';
-import { MessageList } from './components/chat/MessageList';
-import { ChatInput } from './components/chat/ChatInput';
+import { ChatPage } from './components/chat/ChatPage';
+import { KnowledgeCopilotPage } from './components/knowledge/KnowledgeCopilotPage';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { DocumentManagerModal } from './components/documents/DocumentManagerModal';
+import { DocumentUploadModal } from './components/documents/DocumentUploadModal';
 import { useSettingsStore } from './stores/settingsStore';
 import { useChatStore } from './stores/chatStore';
+import { useNavigationStore } from './stores/navigationStore';
 
 export const App: React.FC = () => {
   const preferences = useSettingsStore((s) => s.preferences);
+  const activeView = useNavigationStore((s) => s.activeView);
   const hasInitializedSidebarRef = useRef(false);
 
   // Auto-close sidebar on mobile devices on initial mount or when screen shrinks
@@ -109,25 +112,15 @@ export const App: React.FC = () => {
       {/* Navigation & History Sidebar */}
       <Sidebar />
 
-      {/* Main Mission Workspace */}
-      <main
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-          minWidth: 0,
-        }}
-      >
-        <Header />
-        <MessageList />
-        <ChatInput />
-      </main>
+      {/* Active page: general chat or Knowledge Copilot (#/chat, #/knowledge) */}
+      {activeView === 'knowledge' ? <KnowledgeCopilotPage /> : <ChatPage />}
 
       {/* Customization & Settings Modal */}
       <SettingsModal />
+
+      {/* Engineering Knowledge Base: document management & upload workflow */}
+      <DocumentManagerModal />
+      <DocumentUploadModal />
     </div>
   );
 };

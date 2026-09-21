@@ -1,0 +1,188 @@
+/*
+ * Knowledge Copilot page + shared primary navigation.
+ * Classes (rather than inline styles) so every control gets real :hover / :active /
+ * :focus-visible / :disabled states, as required by .agent/design_system.md.
+ * Tokens only — colors, radii, spacing and motion all come from tokens.css.
+ */
+
+/* ---------- Primary navigation (sidebar) ---------- */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: start;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item:active { background: var(--bg-active); }
+.nav-item[aria-current='page'] { background: var(--bg-active); color: var(--text-primary); font-weight: 600; }
+.nav-item[aria-current='page'] svg { color: var(--accent-primary); }
+
+/* ---------- Segmented control (Quick | Deep, Answer | Sources) ---------- */
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+}
+.segmented-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: background-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.segmented-option:hover { color: var(--text-primary); }
+.segmented-option:active { transform: scale(0.98); }
+.segmented-option[aria-checked='true'] {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-subtle);
+}
+
+/* ---------- Tertiary text action ---------- */
+.text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--accent-text);
+  transition: opacity var(--transition-fast);
+}
+.text-action:hover { text-decoration: underline; }
+.text-action:active { opacity: 0.7; }
+.text-action.is-muted { color: var(--text-secondary); }
+
+/* ---------- Inline citation marker [n] ---------- */
+.citation-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35em;
+  margin: 0 0.1em;
+  padding: 0 0.3em;
+  border-radius: var(--radius-xs);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 0.15em;
+  color: var(--accent-text);
+  background: var(--accent-surface);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.citation-marker:hover { background: var(--accent-surface-hover); }
+.citation-marker:active { transform: scale(0.96); }
+.citation-marker[aria-pressed='true'] { background: var(--accent-primary); color: var(--text-inverse); }
+
+/* ---------- Source row (flat list item, hairline separated) ---------- */
+.source-row { border-radius: var(--radius-sm); transition: background-color var(--transition-fast); }
+.source-row + .source-row { border-top: 1px solid var(--hairline); }
+.source-row[data-selected='true'] { background: var(--bg-active); }
+.source-row-trigger {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-2);
+  text-align: start;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+.source-row-trigger:hover { background: var(--bg-hover); }
+.source-row-trigger:active { background: var(--bg-active); }
+.source-index {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent-surface);
+}
+.source-row[data-selected='true'] .source-index { background: var(--accent-primary); color: var(--text-inverse); }
+.source-excerpt {
+  margin: 0 var(--space-2) var(--space-3) calc(var(--space-2) + 22px + var(--space-3));
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--border-muted);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  animation: fadeIn var(--transition-normal);
+}
+
+/* ---------- Suggested questions (plain rows, no cards) ---------- */
+.suggestion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-1);
+  text-align: start;
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--hairline);
+  transition: color var(--transition-fast);
+}
+.suggestion-row:last-child { border-bottom: 1px solid var(--hairline); }
+.suggestion-row:hover { color: var(--text-primary); }
+.suggestion-row:active { opacity: 0.7; }
+
+/* ---------- Research steps ---------- */
+.research-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  animation: fadeIn var(--transition-normal);
+}
+
+/* ---------- Mobile scope sheet ---------- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.4);
+  animation: fadeInOverlay var(--transition-normal);
+}
+.sheet {
+  width: 100%;
+  padding: var(--space-5) var(--space-4) calc(var(--space-5) + var(--safe-area-bottom));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-modal);
+  animation: slideSheetUp var(--transition-spring);
+}
+@keyframes slideSheetUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Larger touch targets on phones */
+@media (max-width: 767px) {
+  .nav-item,
+  .suggestion-row,
+  .source-row-trigger { min-height: 44px; }
+  .segmented-option { min-height: 36px; padding: var(--space-2) var(--space-3); }
+}

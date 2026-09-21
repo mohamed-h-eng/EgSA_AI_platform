@@ -1,32 +1,32 @@
-# React + TypeScript + Vite
+# EgSA AI Platform — Web App
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Web frontend for the **EgSA AI Engineering Platform** pilot (Egyptian Space Agency): a locally-hosted general AI chat plus an Engineering Knowledge Copilot (document upload/management, RAG answers with source citations) and admin workflows.
 
-Currently, two official plugins are available:
+## Quick start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # type-check + production build to dist/
+npm run lint     # oxlint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Works out of the box with the built-in **mock** model provider. To use a real model, open **Settings → Engine & API** and point it at any OpenAI-compatible endpoint (e.g. Ollama at `http://localhost:11434/v1`). Enable the proxy option in dev if the endpoint doesn't allow browser CORS.
+
+Knowledge Base features (upload, document list, indexing status, source cards) currently run against a client-side mock store until the backend gateway API is available.
+
+## Docker
+
+```bash
+docker build -t egsa-ai-web .
+docker run -p 8080:80 egsa-ai-web
+```
+
+Serves the static build via nginx; intended to sit behind the EgSA gateway.
+
+## Project docs
+
+- [`agent/CONTEXT.md`](agent/CONTEXT.md) — architecture, code map, conventions
+- [`agent/PROJECT_PLAN.md`](agent/PROJECT_PLAN.md) — requirements status and roadmap
+- [`CHANGELOG.md`](CHANGELOG.md) — change history
+- [`.agent/design_system.md`](.agent/design_system.md) — design guidelines
