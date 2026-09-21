@@ -372,119 +372,130 @@ export class CustomAPIProvider implements LLMProvider {
     const startTime = Date.now();
     let accumulated = '';
 
-    const execute = async () => {
-      try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          ...this.options.customHeaders,
-        };
+    const normalizedUrl = normalizeEndpointUrl(this.options.endpointUrl);
 
-        if (this.options.apiKey?.trim()) {
-          headers['Authorization'] = `Bearer ${this.options.apiKey.trim()}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...this.options.customHeaders,
+    };
+
+    if (this.options.apiKey?.trim()) {
+      headers['Authorization'] = `Bearer ${this.options.apiKey.trim()}`;
+    }
+
+    if (normalizedUrl.includes('openrouter.ai') && typeof window !== 'undefined') {
+      headers['HTTP-Referer'] = window.location.origin;
+      headers['X-Title'] = 'EgSA AI Platform';
+    }
+
+    const effectiveModel =
+      this.options.modelId?.trim() ||
+      params.modelId ||
+      'gpt-4o-mini';
+
+    const bodyStr = JSON.stringify({
+      model: effectiveModel,
+      messages: params.messages,
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.maxTokens ?? 2048,
+      stream: true,
+    });
+
+    /** Fires a single fetch attempt at the given resolved URL and streams chunks. */
+    const runFetch = async (resolvedUrl: string): Promise<void> => {
+      const response = await fetch(resolvedUrl, {
+        method: 'POST',
+        headers,
+        body: bodyStr,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        let errorDetail = '';
+        try {
+          const errJson = await response.json();
+          errorDetail = errJson.error?.message || errJson.message || JSON.stringify(errJson);
+        } catch {
+          errorDetail = await response.text().catch(() => '');
         }
+        throw new Error(
+          `API returned HTTP ${response.status} (${response.statusText}): ${errorDetail || 'Check endpoint or model ID'}`
+        );
+      }
 
-        const normalizedUrl = normalizeEndpointUrl(this.options.endpointUrl);
-        if (normalizedUrl.includes('openrouter.ai') && typeof window !== 'undefined') {
-          headers['HTTP-Referer'] = window.location.origin;
-          headers['X-Title'] = 'EgSA AI Platform';
-        }
+      if (!response.body) {
+        throw new Error('ReadableStream not supported in response body');
+      }
 
-        const effectiveModel =
-          this.options.modelId?.trim() ||
-          params.modelId ||
-          'gpt-4o-mini';
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
 
-        const body = JSON.stringify({
-          model: effectiveModel,
-          messages: params.messages,
-          temperature: params.temperature ?? 0.7,
-          max_tokens: params.maxTokens ?? 2048,
-          stream: true,
-        });
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        const targetUrl = resolveRequestUrl(this.options.endpointUrl, this.options.useProxy);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-        const response = await fetch(targetUrl, {
-          method: 'POST',
-          headers,
-          body,
-          signal: controller.signal,
-        });
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) continue;
 
-        if (!response.ok) {
-          let errorDetail = '';
-          try {
-            const errJson = await response.json();
-            errorDetail = errJson.error?.message || errJson.message || JSON.stringify(errJson);
-          } catch {
-            errorDetail = await response.text().catch(() => '');
+          if (trimmed === 'data: [DONE]') {
+            const latencyMs = Date.now() - startTime;
+            onChunk({ content: '', done: true, stats: { completionTokens: Math.ceil(accumulated.length / 4), latencyMs } });
+            return;
           }
-          throw new Error(
-            `API returned HTTP ${response.status} (${response.statusText}): ${errorDetail || 'Check endpoint or model ID'}`
-          );
-        }
 
-        if (!response.body) {
-          throw new Error('ReadableStream not supported in response body');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith(':')) continue;
-
-            if (trimmed === 'data: [DONE]') {
-              const latencyMs = Date.now() - startTime;
-              const stats: TokenStats = {
-                completionTokens: Math.ceil(accumulated.length / 4),
-                latencyMs,
-              };
-              onChunk({ content: '', done: true, stats });
-              return;
-            }
-
-            if (trimmed.startsWith('data: ')) {
-              try {
-                const parsed = JSON.parse(trimmed.slice(6));
-                const textChunk =
-                  parsed.choices?.[0]?.delta?.content ||
-                  parsed.choices?.[0]?.text ||
-                  '';
-                if (textChunk) {
-                  accumulated += textChunk;
-                  onChunk({ content: textChunk, done: false });
-                }
-              } catch {
-                // Ignore JSON parse errors on partial chunk boundaries
+          if (trimmed.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(trimmed.slice(6));
+              const textChunk =
+                parsed.choices?.[0]?.delta?.content ||
+                parsed.choices?.[0]?.text ||
+                '';
+              if (textChunk) {
+                accumulated += textChunk;
+                onChunk({ content: textChunk, done: false });
               }
+            } catch {
+              // Ignore JSON parse errors on partial chunk boundaries
             }
           }
         }
+      }
 
-        const latencyMs = Date.now() - startTime;
-        onChunk({
-          content: '',
-          done: true,
-          stats: {
-            completionTokens: Math.ceil(accumulated.length / 4),
-            latencyMs,
-          },
-        });
+      const latencyMs = Date.now() - startTime;
+      onChunk({
+        content: '',
+        done: true,
+        stats: { completionTokens: Math.ceil(accumulated.length / 4), latencyMs },
+      });
+    };
+
+    const execute = async () => {
+      const directUrl = resolveRequestUrl(normalizedUrl, this.options.useProxy);
+
+      try {
+        await runFetch(directUrl);
       } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          onError(err instanceof Error ? err : new Error(String(err)));
+        if (err.name === 'AbortError') return;
+
+        // If the request wasn't already going through the proxy, try the proxy as a CORS fallback
+        if (!this.options.useProxy) {
+          const proxyUrl = resolveRequestUrl(normalizedUrl, true);
+          try {
+            await runFetch(proxyUrl);
+            return;
+          } catch (proxyErr: any) {
+            if (proxyErr.name === 'AbortError') return;
+            // Proxy also failed — report original error for clarity
+          }
         }
+
+        onError(err instanceof Error ? err : new Error(String(err)));
       }
     };
 

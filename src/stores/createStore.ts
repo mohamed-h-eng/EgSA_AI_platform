@@ -55,7 +55,25 @@ export function createStore<T>(creator: StateCreator<T>, persistKey?: string): U
     try {
       const saved = localStorage.getItem(persistKey);
       if (saved) {
-        state = { ...initialCreatedState, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        const merged: any = { ...initialCreatedState };
+        for (const key of Object.keys(parsed)) {
+          const defaultVal = (initialCreatedState as any)[key];
+          const savedVal = parsed[key];
+          if (
+            defaultVal &&
+            typeof defaultVal === 'object' &&
+            !Array.isArray(defaultVal) &&
+            savedVal &&
+            typeof savedVal === 'object' &&
+            !Array.isArray(savedVal)
+          ) {
+            merged[key] = { ...defaultVal, ...savedVal };
+          } else {
+            merged[key] = savedVal;
+          }
+        }
+        state = merged;
       } else {
         state = initialCreatedState;
       }

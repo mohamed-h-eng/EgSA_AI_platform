@@ -16,10 +16,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
 
-  const globalDirection = useSettingsStore((s) => s.preferences.textDirection);
+  const globalDirection = useSettingsStore((s) => s.preferences?.textDirection);
   const [localDir, setLocalDir] = useState<TextDirection | undefined>(message.direction);
 
-  const effectiveDir: TextDirection = localDir || (globalDirection !== 'auto' ? globalDirection : 'auto');
+  const effectiveDir: TextDirection =
+    localDir || (globalDirection === 'ltr' || globalDirection === 'rtl' ? globalDirection : 'auto');
 
   const handleToggleDirection = () => {
     // If auto or rtl, toggle to ltr; if ltr, toggle to rtl
@@ -234,10 +235,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
               borderRadius: 'var(--radius-xs)',
               gap: '0.35rem',
             }}
-            title={`Direction: ${effectiveDir.toUpperCase()} (Click to toggle)`}
+            title={`Direction: ${(effectiveDir || 'auto').toUpperCase()} (Click to toggle)`}
           >
             {effectiveDir === 'ltr' ? <AlignLeftIcon size={13} /> : <AlignRightIcon size={13} />}
-            <span>{effectiveDir === 'auto' ? 'Auto' : effectiveDir.toUpperCase()}</span>
+            <span>{effectiveDir === 'auto' || !effectiveDir ? 'Auto' : effectiveDir.toUpperCase()}</span>
           </button>
 
           <button
@@ -340,10 +341,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
               borderRadius: 'var(--radius-xs)',
               gap: '0.35rem',
             }}
-            title={`Direction: ${effectiveDir.toUpperCase()} (Click to toggle)`}
+            title={`Direction: ${(effectiveDir || 'auto').toUpperCase()} (Click to toggle)`}
           >
             {effectiveDir === 'ltr' ? <AlignLeftIcon size={13} /> : <AlignRightIcon size={13} />}
-            <span>{effectiveDir === 'auto' ? 'Auto' : effectiveDir.toUpperCase()}</span>
+            <span>{effectiveDir === 'auto' || !effectiveDir ? 'Auto' : effectiveDir.toUpperCase()}</span>
           </button>
 
           {isLatestAssistant && (

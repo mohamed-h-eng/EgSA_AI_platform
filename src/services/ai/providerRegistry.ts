@@ -25,7 +25,7 @@ class ProviderRegistry {
           endpointUrl: config.customEndpointUrl,
           apiKey: config.apiKey,
           modelId: config.customModelId,
-          useProxy: config.useProxy ?? true,
+          useProxy: config.useProxy ?? false,
         });
       }
     }
