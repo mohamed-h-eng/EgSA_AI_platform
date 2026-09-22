@@ -2,12 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FileTextIcon, ChevronDownIcon } from '../ui/Icons';
 import type { SourceReference } from '../../types';
 
-<<<<<<< HEAD
 // Relevance at or above this reads as a strong match.
 const STRONG_MATCH = 0.5;
 
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 interface SourceCardProps {
   source: SourceReference;
   defaultExpanded?: boolean;
@@ -32,14 +29,11 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, defaultExpanded 
   }, [isSelected]);
 
   const meta = [`Rev ${source.revision}`, `p. ${source.page}`, source.section].filter(Boolean).join(' · ');
-<<<<<<< HEAD
   // Freshness and match strength help engineers decide what to double-check. Words, not colour.
   const indexed = source.indexedAt
     ? `indexed ${new Date(source.indexedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
     : undefined;
   const match = source.relevance === undefined ? undefined : source.relevance >= STRONG_MATCH ? 'Strong match' : 'Partial match';
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
   return (
     <div ref={rowRef} className="source-row" data-selected={isSelected ? 'true' : undefined}>
@@ -72,7 +66,6 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, defaultExpanded 
               </>
             )}
           </span>
-<<<<<<< HEAD
           {(match || indexed) && (
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: 1.4 }}>
               {match && <span className="match-strength" data-strength={match === 'Strong match' ? 'strong' : 'partial'}>{match}</span>}
@@ -80,8 +73,6 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, defaultExpanded 
               {indexed}
             </span>
           )}
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
         </span>
 
         {canExpand && (
@@ -98,16 +89,12 @@ export const SourceCard: React.FC<SourceCardProps> = ({ source, defaultExpanded 
         )}
       </button>
 
-<<<<<<< HEAD
       {isExpanded && (
         <blockquote className="source-excerpt">
           “{source.excerpt}”
           {match === 'Partial match' && <span className="source-caution">Partial match: check this passage answers the question.</span>}
         </blockquote>
       )}
-=======
-      {isExpanded && <blockquote className="source-excerpt">“{source.excerpt}”</blockquote>}
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
     </div>
   );
 };

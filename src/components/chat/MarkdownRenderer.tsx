@@ -79,58 +79,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
         direction: direction === 'auto' ? undefined : direction,
       }}
     >
-<<<<<<< HEAD
       {parseMarkdown(safeContent, direction, citations, isStreaming)}
-=======
-      {parseMarkdown(safeContent, direction, citations)}
-      {isStreaming && <span className="stream-cursor" title="Streaming..." />}
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
     </div>
   );
 };
 
-<<<<<<< HEAD
 function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto', citations?: CitationOptions, isStreaming = false): React.ReactNode[] {
-=======
-const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, code }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="code-block-container">
-      <div className="code-block-header">
-        <span>{language || 'code'}</span>
-        <button
-          onClick={handleCopy}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.2rem 0.5rem',
-            borderRadius: 'var(--radius-xs)',
-            fontSize: 'var(--text-xs)',
-            background: copied ? 'var(--accent-surface)' : 'rgba(255, 255, 255, 0.05)',
-            color: copied ? 'var(--accent-primary)' : 'inherit',
-          }}
-        >
-          {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
-      </div>
-      <pre className="code-block-content">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-};
-
-function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto', citations?: CitationOptions): React.ReactNode[] {
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   if (!text) return [];
 
   const elements: React.ReactNode[] = [];

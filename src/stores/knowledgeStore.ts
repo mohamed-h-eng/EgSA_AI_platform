@@ -29,10 +29,7 @@ interface KnowledgeState {
   createThread: () => string;
   selectThread: (id: string) => void;
   renameThread: (id: string, title: string) => void;
-<<<<<<< HEAD
   togglePinThread: (id: string) => void;
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   deleteThread: (id: string) => void;
   exportThread: (id: string) => void;
   setScope: (scope: KnowledgeScope) => void;
@@ -89,14 +86,11 @@ export const useKnowledgeStore = createStore<KnowledgeState>((set, get) => {
       set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, title, updatedAt: Date.now() } : t)) }));
     },
 
-<<<<<<< HEAD
     // Pinning doesn't touch updatedAt, so it doesn't reorder the date groups.
     togglePinThread: (id) => {
       set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, pinned: !t.pinned } : t)) }));
     },
 
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
     deleteThread: (id) => {
       set((s) => {
         const remaining = s.threads.filter((t) => t.id !== id);

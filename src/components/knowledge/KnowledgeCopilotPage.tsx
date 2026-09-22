@@ -5,12 +5,8 @@ import { ResearchTurn } from './ResearchTurn';
 import { EvidencePanel } from './EvidencePanel';
 import { KnowledgeComposer } from './KnowledgeComposer';
 import { useKnowledgeStore } from '../../stores/knowledgeStore';
-<<<<<<< HEAD
 import { useDocumentStore, isDocumentAccessible, isProjectAccessible } from '../../stores/documentStore';
 import { handleListArrowKeys } from '../../utils/keyboard';
-=======
-import { useDocumentStore } from '../../stores/documentStore';
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 import { useChatStore } from '../../stores/chatStore';
 import { useIsMobile, useMediaQuery } from '../../hooks/useMediaQuery';
 import { KNOWLEDGE_SUGGESTIONS } from '../../constants/defaults';
@@ -35,11 +31,7 @@ export const KnowledgeCopilotPage: React.FC = () => {
   const isStreaming = useKnowledgeStore((s) => s.isStreaming);
 
   const documents = useDocumentStore((s) => s.documents);
-<<<<<<< HEAD
   const allProjects = useDocumentStore((s) => s.projects);
-=======
-  const projects = useDocumentStore((s) => s.projects);
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   const openManager = useDocumentStore((s) => s.openManager);
   const isSidebarOpen = useChatStore((s) => s.isSidebarOpen);
   const toggleSidebar = useChatStore((s) => s.toggleSidebar);
@@ -52,7 +44,6 @@ export const KnowledgeCopilotPage: React.FC = () => {
   const lastTurn = turns[turns.length - 1];
   const focusedTurn = turns.find((t) => t.id === focusedTurnId) || lastTurn;
 
-<<<<<<< HEAD
   // ADM-007: switched-off projects/subsystems are hidden from the scope picker and never searched.
   const projects = allProjects
     .filter((p) => !p.disabled)
@@ -65,22 +56,15 @@ export const KnowledgeCopilotPage: React.FC = () => {
       isDocumentAccessible(d, allProjects) &&
       (!scope.project || d.project === scope.project) &&
       (!scope.subsystem || d.subsystem === scope.subsystem)
-=======
-  const searchableCount = documents.filter(
-    (d) => d.status === 'indexed' && (!scope.project || d.project === scope.project) && (!scope.subsystem || d.subsystem === scope.subsystem)
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   ).length;
   const projectName = projects.find((p) => p.id === scope.project)?.name;
   const scopeLabel = projectName ? `${projectName}${scope.subsystem ? ` / ${scope.subsystem}` : ''}` : 'All projects';
 
-<<<<<<< HEAD
   // An administrator switched off the scoped project/subsystem: fall back to all projects.
   useEffect(() => {
     if (!scopeAccessible && !isStreaming) setScope({});
   }, [scopeAccessible, isStreaming, setScope]);
 
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   // New question or thread switch: jump to the latest turn.
   useEffect(() => {
     const el = scrollRef.current;
@@ -318,11 +302,7 @@ const EmptyState: React.FC<{
       </button>
     </p>
 
-<<<<<<< HEAD
     <div style={{ marginTop: 'var(--space-6)', maxWidth: '560px' }} onKeyDown={handleListArrowKeys}>
-=======
-    <div style={{ marginTop: 'var(--space-6)', maxWidth: '560px' }}>
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
       <h3 style={{ fontSize: 'var(--text-xs)', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>
         Try asking
       </h3>

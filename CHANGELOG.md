@@ -14,7 +14,6 @@ Entry template:
 ## [Unreleased]
 
 ### Added
-<<<<<<< HEAD
 - **Astronaut status companion**: a small astronaut, redrawn as a theme-aware SVG from `src/assets/pet.jpg`, is docked above the message box while an answer is produced. It searches with a lens ("Thinking…" / "Searching documents…"), types while text streams ("Writing…" / "Writing code…"), gives a brief check-mark "Done" (or a shrug for Stopped/failed), then disappears. It runs in Chat and the Knowledge Copilot, is CSS-only, stops under reduced motion, and can be turned off in Settings → Appearance → *Answer status companion*. Plan: `agent/ASTRONAUT_STATUS_PLAN.md` — `src/components/ui/Astronaut.tsx`, `src/components/chat/AnswerStatusDock.tsx`, `src/hooks/useAnswerStage.ts`
 - **Conversation context per model profile**: *This app sends it* (default; cleaned recent history, needed for stateless Ollama / LM Studio / OpenRouter endpoints) or *Server keeps it*. The latter sends only the new question plus `conversation_id` / `message_id` / `replaces_message_id` (and `X-Conversation-Id`) for a gateway that stores conversations. The proposed contract is in `agent/PROMPTING_CONTEXT_PLAN.md` §3a — `src/services/ai/context.ts`, Settings → Models
 - **Code blocks: syntax highlighting + quick checks** (plan: `agent/CODE_BLOCKS_PLAN.md`):
@@ -49,8 +48,6 @@ Entry template:
 - **Service health for admins (ADM-005, NFR-OPS-005)**. The Knowledge Base modal is now "Administration" in Admin View, with a **Documents | Health** switch. Health lists the gateway, chat model, knowledge index and embeddings/retrieval, each with a status glyph and word, latency and detail. It checks when opened, on "Check now", and every 30 s while open. Plan: `agent/ADMIN_HEALTH_PLAN.md`.
   - `getSystemHealth()` is the swap-in point for `GET /api/health`. It uses the gateway's JSON report when there is one. Otherwise it checks the chat endpoint's model list (no tokens spent) and the `documentStore` index state, and reports the gateway as "Not connected" — `src/services/health/healthService.ts`
   - `healthStore` (not persisted), `HealthPanel`, types `ServiceStatus` / `ServiceHealth` / `SystemHealthReport`, `ActivityIcon`, `documentStore.adminSection`
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 - **Knowledge Copilot page (mock-backed)**: a separate page for grounded Q&A and deep research over indexed documents (KB-009, KB-010, KB-011, KB-012, KB-018, NFR-USE-002). Plan: `agent/KNOWLEDGE_COPILOT_PLAN.md`.
   - Navigation between Chat and Knowledge Copilot through the URL hash (`#/chat`, `#/knowledge`); Back/Forward work — `src/stores/navigationStore.ts`
   - Sidebar gets two main menu items (Chat / Knowledge Copilot). Its history list follows the active page: chat sessions or Copilot research threads — `src/components/layout/Sidebar.tsx`
@@ -72,7 +69,6 @@ Entry template:
   - Knowledge Base button in sidebar footer; modals mounted in `App.tsx`; new icons (UploadCloud, FileText, Folder, Filter, Database) — `src/components/layout/Sidebar.tsx`, `src/components/ui/Icons.tsx`
 
 ### Changed
-<<<<<<< HEAD
 - **Chat fade and scroll button:** messages now fade out above the astronaut and model status, which sit on a solid background (`--composer-fade`). The composer publishes its real height (`--chat-composer-h`, measured with a `ResizeObserver`). The message list's end padding and the "scroll to latest" button use it: the button is centred just above the status row and moves up when the input grows to several lines. Previously it used a fixed 76 px and landed in the astronaut's row — `ChatInput.tsx`, `MessageList.tsx`, `tokens.css`
 - **Answer footer:** answers no longer show the profile · model caption; only the response time remains. The model is shown in the status above the message box (CHAT-009) — `MessageItem.tsx`
 - **User message bubble:** changed from a saturated blue fill with white text (3.6:1 contrast in dark mode, below WCAG AA) to a soft accent-tinted surface with normal text and a faint accent hairline. Light: `#e3eefc` / `#1d1d1f` (≈14:1). Dark: `#1c2d44` / `#f5f5f7` (≈13:1) — `tokens.css` (`--msg-user-*`), `MessageItem.tsx`
@@ -100,8 +96,6 @@ Entry template:
 ### Removed
 - Unused `zustand` and `lucide-react` dependencies; `DEFAULT_MODELS`, `AIModel`, `activeModelId`, `persona.defaultModelId`.
 - `styles/knowledge.css` renamed to `styles/components.css`, since its classes are shared outside the Copilot. It adds health-row/status-glyph classes, `.is-spinning`, and a disabled state for `.text-action`.
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 - Chat is general-purpose only again. A short-lived in-chat "Knowledge mode" (never committed) was replaced by the Copilot page. Chat sessions saved in that mode are moved into Copilot threads on load, keeping their questions, answers and citations.
 - `App.tsx` switches between `ChatPage` (new wrapper for Header / MessageList / ChatInput) and `KnowledgeCopilotPage`.
 - `SourceCard` is restyled as a flat, hairline-separated row with an optional citation number and controlled selection. The document manager uses the same component.

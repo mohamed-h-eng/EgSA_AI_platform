@@ -333,7 +333,6 @@ export const BookOpenIcon: React.FC<IconProps> = ({ size = 18, className = '', .
     <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
   </svg>
 );
-<<<<<<< HEAD
 
 export const ActivityIcon: React.FC<IconProps> = ({ size = 18, className = '', ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
@@ -361,5 +360,3 @@ export const KeyboardIcon: React.FC<IconProps> = ({ size = 18, className = '', .
     <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10" />
   </svg>
 );
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af

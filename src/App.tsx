@@ -8,12 +8,9 @@ import { DocumentUploadModal } from './components/documents/DocumentUploadModal'
 import { useSettingsStore } from './stores/settingsStore';
 import { useChatStore } from './stores/chatStore';
 import { useNavigationStore } from './stores/navigationStore';
-<<<<<<< HEAD
 import { LiveAnnouncer } from './components/ui/LiveAnnouncer';
 import { ShortcutsDialog, Toast } from './components/ui/ShortcutsDialog';
 import { useShortcuts } from './hooks/useShortcuts';
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
 export const App: React.FC = () => {
   const preferences = useSettingsStore((s) => s.preferences);
@@ -128,7 +125,6 @@ export const App: React.FC = () => {
       {/* Engineering Knowledge Base: document management & upload workflow */}
       <DocumentManagerModal />
       <DocumentUploadModal />
-<<<<<<< HEAD
 
       {/* Screen-reader announcements for answers (starts and short excerpts, never token by token) */}
       <LiveAnnouncer />
@@ -136,8 +132,6 @@ export const App: React.FC = () => {
       {/* Keyboard shortcuts sheet (?) and confirmations for shortcut actions */}
       <ShortcutsDialog />
       <Toast />
-=======
->>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
     </div>
   );
 };
