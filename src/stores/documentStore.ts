@@ -15,6 +15,7 @@ export interface UploadDocumentInput {
   classification?: DocumentClassification;
 }
 
+<<<<<<< HEAD
 // Sections of the Administration modal; all but 'documents' are admin-only (ADM-007, ADM-005, feedback).
 export type AdminSection = 'documents' | 'projects' | 'health' | 'feedback';
 
@@ -30,12 +31,18 @@ export const isDocumentAccessible = (doc: Pick<KnowledgeDocument, 'project' | 's
 export const isProjectAccessible = (projectId: string, subsystem: string | undefined, projects: ProjectDefinition[]) =>
   isDocumentAccessible({ project: projectId, subsystem }, projects);
 
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 interface DocumentState {
   documents: KnowledgeDocument[];
   projects: ProjectDefinition[];
   isUploadModalOpen: boolean;
   isManagerOpen: boolean;
+<<<<<<< HEAD
   adminSection: AdminSection;
+=======
+  isAdminMode: boolean;
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   projectFilter: string;
   subsystemFilter: string;
   searchQuery: string;
@@ -44,7 +51,11 @@ interface DocumentState {
   closeUploadModal: () => void;
   openManager: () => void;
   closeManager: () => void;
+<<<<<<< HEAD
   setAdminSection: (section: AdminSection) => void;
+=======
+  toggleAdminMode: () => void;
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   setProjectFilter: (project: string) => void;
   setSubsystemFilter: (subsystem: string) => void;
   setSearchQuery: (query: string) => void;
@@ -53,9 +64,12 @@ interface DocumentState {
   reindexDocument: (id: string) => void;
   toggleDocumentEnabled: (id: string) => void;
   deleteDocument: (id: string) => void;
+<<<<<<< HEAD
 
   setProjectEnabled: (projectId: string, enabled: boolean) => void;
   setSubsystemEnabled: (projectId: string, subsystem: string, enabled: boolean) => void;
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
@@ -106,16 +120,26 @@ export const useDocumentStore = createStore<DocumentState>((set, get) => {
     projects: DEFAULT_PROJECTS,
     isUploadModalOpen: false,
     isManagerOpen: false,
+<<<<<<< HEAD
     adminSection: 'documents',
+=======
+    isAdminMode: true,
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
     projectFilter: '',
     subsystemFilter: '',
     searchQuery: '',
 
     openUploadModal: () => set({ isUploadModalOpen: true }),
     closeUploadModal: () => set({ isUploadModalOpen: false }),
+<<<<<<< HEAD
     openManager: () => set({ isManagerOpen: true, adminSection: 'documents' }),
     closeManager: () => set({ isManagerOpen: false }),
     setAdminSection: (adminSection) => set({ adminSection }),
+=======
+    openManager: () => set({ isManagerOpen: true }),
+    closeManager: () => set({ isManagerOpen: false }),
+    toggleAdminMode: () => set((s) => ({ isAdminMode: !s.isAdminMode })),
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
     setProjectFilter: (projectFilter) => set({ projectFilter, subsystemFilter: '' }),
     setSubsystemFilter: (subsystemFilter) => set({ subsystemFilter }),
     setSearchQuery: (searchQuery) => set({ searchQuery }),
@@ -168,6 +192,7 @@ export const useDocumentStore = createStore<DocumentState>((set, get) => {
     deleteDocument: (id) => {
       set((s) => ({ documents: s.documents.filter((d) => d.id !== id) }));
     },
+<<<<<<< HEAD
 
     // ADM-007 — client-side until the backend owns project visibility (and audits it, ADM-006).
     setProjectEnabled: (projectId, enabled) => {
@@ -205,3 +230,7 @@ export function reconcileProjects(saved: ProjectDefinition[] | undefined, seed: 
   const extras = (saved || []).filter((p) => !seed.some((def) => def.id === p.id));
   return [...merged, ...extras];
 }
+=======
+  };
+}, 'egsa_ai_documents');
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af

@@ -1,8 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { UploadCloudIcon, FileTextIcon, XIcon, AlertCircleIcon } from '../ui/Icons';
+<<<<<<< HEAD
 import { useDocumentStore, isProjectAccessible } from '../../stores/documentStore';
 import { useDialog } from '../../hooks/useDialog';
+=======
+import { useDocumentStore } from '../../stores/documentStore';
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 import { DOCUMENT_TYPE_OPTIONS, APPROVAL_STATUS_OPTIONS, CLASSIFICATION_OPTIONS } from '../../constants/defaults';
 import type { DocumentType, ApprovalStatus, DocumentClassification } from '../../types';
 
@@ -22,7 +26,10 @@ export const DocumentUploadModal: React.FC = () => {
   const openManager = useDocumentStore((s) => s.openManager);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+<<<<<<< HEAD
   const dialogRef = useRef<HTMLFormElement>(null);
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -35,6 +42,11 @@ export const DocumentUploadModal: React.FC = () => {
   const [classification, setClassification] = useState<DocumentClassification>('Internal');
   const [error, setError] = useState<string | null>(null);
 
+<<<<<<< HEAD
+=======
+  if (!isOpen) return null;
+
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   const selectedProject = projects.find((p) => p.id === project);
 
   const resetForm = () => {
@@ -55,8 +67,11 @@ export const DocumentUploadModal: React.FC = () => {
     closeUploadModal();
   };
 
+<<<<<<< HEAD
   useDialog(isOpen, handleClose, dialogRef);
 
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   const handleFileChange = (selected: File | null) => {
     setFile(selected);
     if (selected && !title.trim()) {
@@ -94,10 +109,17 @@ export const DocumentUploadModal: React.FC = () => {
     openManager();
   };
 
+<<<<<<< HEAD
   if (!isOpen) return null;
 
   const modalContent = (
     <div
+=======
+  const modalContent = (
+    <div
+      role="dialog"
+      aria-modal="true"
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
       onClick={handleClose}
       style={{
         position: 'fixed',
@@ -114,10 +136,13 @@ export const DocumentUploadModal: React.FC = () => {
       }}
     >
       <form
+<<<<<<< HEAD
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Upload document"
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
         style={{
@@ -237,12 +262,15 @@ export const DocumentUploadModal: React.FC = () => {
             </FormField>
           </div>
 
+<<<<<<< HEAD
           {project && !isProjectAccessible(project, subsystem || undefined, projects) && (
             <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.45, marginTop: '-0.3rem' }}>
               This {subsystem && !selectedProject?.disabled ? 'subsystem' : 'project'} is switched off. The document will be indexed, but the Copilot won't search it until an administrator switches it back on.
             </p>
           )}
 
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem' }}>
             <FormField label="Document ID">
               <input type="text" value={documentId} onChange={(e) => setDocumentId(e.target.value)} placeholder="EGSA-ADCS-SRS-001" style={{ ...inputStyle, fontFamily: 'monospace' }} />

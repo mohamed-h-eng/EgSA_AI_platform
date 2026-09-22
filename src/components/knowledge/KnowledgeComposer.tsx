@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useRef } from 'react';
 import { ArrowUpIcon, StopCircleIcon } from '../ui/Icons';
 import { useKnowledgeStore } from '../../stores/knowledgeStore';
@@ -5,14 +6,24 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useDraft } from '../../utils/drafts';
 import { AnswerStatusDock } from '../chat/AnswerStatusDock';
 import { useCopilotAnswerStage } from '../../hooks/useAnswerStage';
+=======
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowUpIcon, StopCircleIcon } from '../ui/Icons';
+import { useKnowledgeStore } from '../../stores/knowledgeStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
 // Question input for the Copilot page: auto-growing textarea, Quick | Deep depth control and
 // send/stop. The only elevated surface on the page besides the mobile scope sheet.
 export const KnowledgeComposer: React.FC = () => {
+<<<<<<< HEAD
   // Unsent question is kept per research thread (PRODUCTIVITY_UX_PLAN §4).
   const activeThreadId = useKnowledgeStore((s) => s.activeThreadId);
   const [input, setInput] = useDraft(activeThreadId ? `thread:${activeThreadId}` : 'thread:new');
   const answerStage = useCopilotAnswerStage();
+=======
+  const [input, setInput] = useState('');
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const depth = useKnowledgeStore((s) => s.depth);
@@ -40,7 +51,10 @@ export const KnowledgeComposer: React.FC = () => {
   return (
     <div
       style={{
+<<<<<<< HEAD
         position: 'relative',
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--space-2)',
@@ -53,11 +67,17 @@ export const KnowledgeComposer: React.FC = () => {
         boxShadow: 'var(--shadow-md)',
       }}
     >
+<<<<<<< HEAD
       <AnswerStatusDock stage={answerStage} />
       <textarea
         aria-label="Question for the knowledge base"
         ref={textareaRef}
         data-composer
+=======
+      <textarea
+        aria-label="Question for the knowledge base"
+        ref={textareaRef}
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
         className="chat-textarea"
         rows={1}
         dir="auto"

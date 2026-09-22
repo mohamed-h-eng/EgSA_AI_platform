@@ -7,7 +7,10 @@ import {
   DownloadIcon,
   MessageSquareIcon,
   BookOpenIcon,
+<<<<<<< HEAD
   PinIcon,
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   PanelLeftIcon,
   SunIcon,
   MoonIcon,
@@ -17,7 +20,10 @@ import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useDocumentStore } from '../../stores/documentStore';
 import { useKnowledgeStore } from '../../stores/knowledgeStore';
+<<<<<<< HEAD
 import { groupByDate } from '../../utils/dateGroups';
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 import { useNavigationStore, type AppView } from '../../stores/navigationStore';
 import { DeleteChatModal } from '../chat/DeleteChatModal';
 import { Logo } from '../ui/Logo';
@@ -60,7 +66,10 @@ export const Sidebar: React.FC = () => {
   const renameThread = useKnowledgeStore((s) => s.renameThread);
   const deleteThread = useKnowledgeStore((s) => s.deleteThread);
   const exportThread = useKnowledgeStore((s) => s.exportThread);
+<<<<<<< HEAD
   const togglePinThread = useKnowledgeStore((s) => s.togglePinThread);
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   const documentCount = useDocumentStore((s) => s.documents.length);
 
   const isDarkMode =
@@ -97,6 +106,7 @@ export const Sidebar: React.FC = () => {
 
   const handleExport = (id: string) => (isKnowledgeView ? exportThread(id) : exportConversation(id, 'markdown'));
   const handleDelete = (id: string) => (isKnowledgeView ? deleteThread(id) : deleteSession(id));
+<<<<<<< HEAD
   const handleTogglePin = (id: string) => (isKnowledgeView ? togglePinThread(id) : togglePinSession(id));
 
   const activeItemId = isKnowledgeView ? activeThreadId : activeSessionId;
@@ -117,6 +127,15 @@ export const Sidebar: React.FC = () => {
           (i) => i.updatedAt
         ).map((g) => ({ label: g.group, items: g.items })),
       ];
+=======
+
+  const activeItemId = isKnowledgeView ? activeThreadId : activeSessionId;
+  const listItems = isKnowledgeView
+    ? threads.map((t) => ({ id: t.id, title: t.title, text: t.turns.map((u) => `${u.question} ${u.answer}`).join(' ') }))
+    : sessions.map((s) => ({ id: s.id, title: s.title, text: s.messages.map((m) => m.content).join(' ') }));
+  const query = searchQuery.toLowerCase();
+  const filteredSessions = listItems.filter((item) => item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query));
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
   const handleStartRename = (id: string, currentTitle: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -296,6 +315,22 @@ export const Sidebar: React.FC = () => {
           gap: '2px',
         }}
       >
+<<<<<<< HEAD
+=======
+        <div
+          style={{
+            fontSize: '0.6875rem',
+            fontWeight: 600,
+            color: 'var(--text-muted)',
+            padding: '0.4rem 0.5rem 0.2rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+          }}
+        >
+          {isKnowledgeView ? 'Research' : 'Recent'}
+        </div>
+
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
         {filteredSessions.length === 0 ? (
           <div
             style={{
@@ -308,10 +343,14 @@ export const Sidebar: React.FC = () => {
             {isKnowledgeView ? (searchQuery ? 'No research found' : 'No research yet') : 'No conversations found'}
           </div>
         ) : (
+<<<<<<< HEAD
           sections.map((section) => (
             <div key={section.label} role="group" aria-label={section.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <div className="sidebar-group-label">{section.label}</div>
               {section.items.map((session) => {
+=======
+          filteredSessions.map((session) => {
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
             const isActive = session.id === activeItemId;
             const isEditing = editingSessionId === session.id;
 
@@ -427,6 +466,7 @@ export const Sidebar: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+<<<<<<< HEAD
                       handleTogglePin(session.id);
                     }}
                     title={session.pinned ? 'Unpin' : 'Pin to top'}
@@ -445,6 +485,8 @@ export const Sidebar: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
                       handleExport(session.id);
                     }}
                     title="Export Markdown"
@@ -528,7 +570,11 @@ export const Sidebar: React.FC = () => {
               color: 'var(--text-secondary)',
               position: 'relative',
             }}
+<<<<<<< HEAD
             title={`Administration: documents and service health (${documentCount} document${documentCount === 1 ? '' : 's'})`}
+=======
+            title={`Knowledge Base (${documentCount} document${documentCount === 1 ? '' : 's'})`}
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
           >
             <DatabaseIcon size={14} />
           </button>

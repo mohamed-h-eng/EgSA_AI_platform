@@ -1,5 +1,9 @@
 @import './tokens.css';
+<<<<<<< HEAD
 @import './components.css';
+=======
+@import './knowledge.css';
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
 *, *::before, *::after {
   box-sizing: border-box;

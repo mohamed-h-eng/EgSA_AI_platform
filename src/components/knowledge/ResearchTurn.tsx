@@ -3,7 +3,10 @@ import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { SourceCard } from '../documents/SourceCard';
 import { CheckIcon, CopyIcon, AlertCircleIcon, ChevronDownIcon, RefreshCwIcon } from '../ui/Icons';
 import { useDocumentStore } from '../../stores/documentStore';
+<<<<<<< HEAD
 import { AnswerFeedback } from '../feedback/AnswerFeedback';
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 import type { KnowledgeTurn, ResearchStep } from '../../types';
 
 interface ResearchTurnProps {
@@ -129,6 +132,7 @@ export const ResearchTurn: React.FC<ResearchTurnProps> = ({ turn, selectedSource
             </span>
           )}
           {turn.answer && (
+<<<<<<< HEAD
             <AnswerFeedback
               answerId={turn.id}
               surface="copilot"
@@ -144,6 +148,12 @@ export const ResearchTurn: React.FC<ResearchTurnProps> = ({ turn, selectedSource
                 {copied ? 'Copied' : 'Copy answer'}
               </button>
             </AnswerFeedback>
+=======
+            <button type="button" className="text-action is-muted" onClick={handleCopy}>
+              {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+              {copied ? 'Copied' : 'Copy answer'}
+            </button>
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
           )}
         </footer>
       )}

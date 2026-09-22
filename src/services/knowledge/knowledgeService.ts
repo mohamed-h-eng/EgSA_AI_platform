@@ -6,7 +6,11 @@ import type {
   ResearchStep,
   SourceReference,
 } from '../../types';
+<<<<<<< HEAD
 import { useDocumentStore, isDocumentAccessible, isProjectAccessible } from '../../stores/documentStore';
+=======
+import { useDocumentStore } from '../../stores/documentStore';
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 import { MOCK_DOCUMENT_PASSAGES, type MockPassage } from './mockPassages';
 
 export interface KnowledgeQueryOptions {
@@ -42,19 +46,28 @@ export async function queryKnowledgeBase(
 
   const { documents, projects } = useDocumentStore.getState();
   const inScope = documents.filter((d) => matchesScope(d, request.scope));
+<<<<<<< HEAD
   // ADM-007: documents in a switched-off project/subsystem are never searched, whatever their status.
   const accessible = inScope.filter((d) => isDocumentAccessible(d, projects));
   const blockedCount = inScope.length - accessible.length;
   const scopeDisabled = !!request.scope.project && !isProjectAccessible(request.scope.project, request.scope.subsystem, projects);
   const searchable = accessible.filter((d) => d.status === 'indexed');
   const unavailableCount = accessible.length - searchable.length;
+=======
+  const searchable = inScope.filter((d) => d.status === 'indexed');
+  const unavailableCount = inScope.length - searchable.length;
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   const scopeLabel = describeScope(request.scope, projects);
 
   pushStep({ id: 'scope', label: 'Scoping the search', status: 'running' });
   await delay(250, signal);
   finishStep('scope', {
     status: searchable.length > 0 ? 'done' : 'empty',
+<<<<<<< HEAD
     detail: `${plural(searchable.length, 'indexed document')}${scopeLabel}${unavailableCount > 0 ? ` · ${unavailableCount} not searchable yet` : ''}${blockedCount > 0 ? ` · ${plural(blockedCount, 'document')} in disabled projects` : ''}`,
+=======
+    detail: `${plural(searchable.length, 'indexed document')}${scopeLabel}${unavailableCount > 0 ? ` · ${unavailableCount} not searchable yet` : ''}`,
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   });
 
   const subQuestions = request.depth === 'deep' ? splitQuestion(request.question) : [request.question];
@@ -80,7 +93,11 @@ export async function queryKnowledgeBase(
       continue;
     }
 
+<<<<<<< HEAD
     const lines = hits.map(({ doc, passage, score }) => {
+=======
+    const lines = hits.map(({ doc, passage }) => {
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
       consulted.add(doc.id);
       const key = `${doc.id}|${passage.page}|${passage.requirementId || passage.section || ''}`;
       let n = sourceKeys.get(key);
@@ -93,9 +110,12 @@ export async function queryKnowledgeBase(
           section: passage.section,
           requirementId: passage.requirementId,
           excerpt: passage.text,
+<<<<<<< HEAD
           indexedAt: doc.indexedAt,
           // Body matches score 2 per term, so 2 × terms is a perfect match.
           relevance: Math.min(1, score / (2 * terms.length)),
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
         });
         n = sources.length;
         sourceKeys.set(key, n);
@@ -119,7 +139,11 @@ export async function queryKnowledgeBase(
     return {
       ...base,
       grounding: 'insufficient',
+<<<<<<< HEAD
       answer: buildInsufficientAnswer(searchable.length, unavailableCount, scopeLabel, blockedCount, scopeDisabled),
+=======
+      answer: buildInsufficientAnswer(searchable.length, unavailableCount, scopeLabel),
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
       sources: [],
       uncovered: request.depth === 'deep' && subQuestions.length > 1 ? uncovered : [],
     };
@@ -232,6 +256,7 @@ const describeScope = (scope: KnowledgeScope, projects: Array<{ id: string; name
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+<<<<<<< HEAD
 const buildInsufficientAnswer = (
   searchedCount: number,
   unavailableCount: number,
@@ -245,6 +270,13 @@ const buildInsufficientAnswer = (
     scopeDisabled
       ? `This project${scopeLabel ? ` (${scopeLabel.replace(/^ in /, '')})` : ''} is disabled by an administrator, so its documents can't be searched.`
       : searchedCount === 0
+=======
+const buildInsufficientAnswer = (searchedCount: number, unavailableCount: number, scopeLabel: string) => {
+  const lines = [
+    '**Insufficient information in the knowledge base.**',
+    '',
+    searchedCount === 0
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
       ? `There are no indexed documents${scopeLabel} to search, so I can't answer this from approved sources.`
       : searchedCount === 1
         ? `The only indexed document${scopeLabel} doesn't contain passages that support an answer, so I won't guess.`
@@ -254,9 +286,12 @@ const buildInsufficientAnswer = (
   if (unavailableCount > 0) {
     lines.push(`- ${plural(unavailableCount, 'document')}${scopeLabel} ${unavailableCount === 1 ? 'is' : 'are'} not searchable yet (still indexing, failed, or disabled).`);
   }
+<<<<<<< HEAD
   if (blockedCount > 0 && !scopeDisabled) {
     lines.push(`- ${plural(blockedCount, 'document')}${scopeLabel} ${blockedCount === 1 ? 'belongs' : 'belong'} to a project or subsystem an administrator has switched off.`);
   }
+=======
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
   lines.push(
     '- Try widening the project/subsystem scope or rephrasing with document terms (subsystem names, requirement IDs).',
     '- If the relevant document is missing, ask an administrator to upload and index it.'

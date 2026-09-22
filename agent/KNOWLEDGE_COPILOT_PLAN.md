@@ -161,5 +161,9 @@ Both modes still search only `indexed` documents, and every citation points at a
 
 - **Breakpoints:** the Evidence panel shows at ≥1100px (rather than 1024px), leaving room for the sidebar. The inline scope controls show at ≥1024px, and the scope sheet is used below that.
 - **Navigation persistence:** `navigationStore` has no `egsa_ai_nav` key after all; the URL hash is the persisted state.
+<<<<<<< HEAD
 - **Stateful classes:** these live in `src/styles/knowledge.css` (renamed to `components.css` on 2026-09-22), imported by `global.css`.
+=======
+- **Stateful classes:** these live in `src/styles/knowledge.css`, imported by `global.css`.
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 - **Relevance cutoff:** raised to 67% of the top passage score. Before that, "pointing accuracy" also cited the safe-mode requirement, only because its text contains "Sun-pointing".

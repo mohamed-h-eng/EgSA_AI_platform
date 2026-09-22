@@ -3,7 +3,11 @@
 > Source: `EgSA_AI_Engineering_Platform_Project_Requirements - 2026.pdf` (Rev 0.1, 06 Sep 2026)
 > Scope: only the work assigned to **Mohamed Hany — Full-Stack / Workflow Lead**, plus the shared items that block or depend on this role.
 > Companion docs: [`CONTEXT.md`](CONTEXT.md) (architecture & conventions) · [`../CHANGELOG.md`](../CHANGELOG.md) (change history)
+<<<<<<< HEAD
 > Last audited: 2026-09-21 (against `app/src` in this repo) · Last updated: 2026-09-22 (ADM-005, ADM-007, CHAT-006 profiles, CHAT-009, offline fonts, a11y/security/test hardening)
+=======
+> Last audited: 2026-09-21 (against `app/src` in this repo) · Last updated: 2026-09-21 (Knowledge Copilot page with deep research shipped, mock-backed)
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
 ---
 
@@ -80,8 +84,13 @@ Requirement IDs from the spec, filtered to what needs frontend/workflow work fro
 | ADM-002 | Maintain list of pilot projects/subsystems for filtering | ✅ `DEFAULT_PROJECTS` in `constants/defaults.ts`, used by upload form + manager filters |
 | ADM-003 | Admin can view document list + indexing status | ✅ `DocumentManagerModal.tsx` |
 | ADM-004 | Show upload/indexing status and errors | ✅ Status badges + inline error message + expandable detail panel |
+<<<<<<< HEAD
 | ADM-005 | Basic model/service health info to admins | 🟡 UI done: Administration modal → Health (`components/admin/HealthPanel.tsx`). Checks run in the browser (chat endpoint model list, knowledge index state, gateway probe) until `GET /api/health` exists, and then use its report. Plan: `ADMIN_HEALTH_PLAN.md` |
 | ADM-007 | Config to disable access to a project/doc set without deleting files | 🟡 UI done, client-side: Administration → Projects switches whole projects or subsystems off. The Copilot stops searching them and User View hides their docs; nothing is deleted or re-indexed (`ProjectAccessPanel.tsx`, `isDocumentAccessible`). Plan: `PROJECT_ACCESS_PLAN.md`. Real enforcement belongs in `GET /api/documents` / the query endpoint |
+=======
+| ADM-005 | Basic model/service health info to admins | ❌ Not started (Should) |
+| ADM-007 | Config to disable access to a project/doc set without deleting files | 🟡 Per-document disable exists; project/doc-set-level toggle not built |
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
 Legend: ✅ done · 🟡 UI complete but backed by client-side mock/local state, not a real backend · ⚠️ partial · ❌ not started.
 
@@ -135,8 +144,13 @@ Not directly my track (VS Code copilot is not part of the `app/` web frontend), 
 1. **Real backend wiring**: everything above runs against `documentStore`'s local/mock state (persisted to `localStorage`), not `POST /api/documents` etc. Swap-in point is the store's action bodies once Hussin's FastAPI endpoints exist.
 2. ~~Knowledge Copilot surface~~ — UI done (see above). Remaining: replace the body of `queryKnowledgeBase()` with the real `POST /api/knowledge/query` call once Hussin/Hesham's endpoint exists. The response must include page-level sources and a grounded/insufficient flag. Delete `mockPassages.ts` at that point.
 3. **Document summary / compare-revisions actions** (KB-016, KB-017): deferred by decision on 2026-09-21. The planned home is the Copilot page (see `KNOWLEDGE_COPILOT_PLAN.md` §3.4).
+<<<<<<< HEAD
 4. ~~Health-check panel for admins (ADM-005)~~: UI done 2026-09-22. Remaining: agree on the `SystemHealthReport` shape (`types/index.ts`) with Hussin for `GET /api/health`.
 5. **Week 6**: UI polish, defect fixes, and a short user guide for the web UI (my piece of `D-12 User and administrator guide`). Done early on 2026-09-22: modal keyboard access (Esc, focus trap), Documents restyle (`DOCUMENTS_RESTYLE_PLAN.md`), unit tests (`npm test`), API key moved out of localStorage, fonts self-hosted for offline use (CHAT-003), cloud provider presets removed (CHAT-002). User guide drafted 2026-09-22 in `docs/USER_GUIDE.md` (D-12, web part), pending team review. Productivity/trust UX round 1 applied (shortcuts, answer feedback + CSV for D-14, screen-reader support, pin/date groups/drafts, source freshness, conversation memory): `PRODUCTIVITY_UX_PLAN.md`. Next round: command palette + saved `/` prompts.
+=======
+4. **Health-check panel for admins** (ADM-005).
+5. **Week 6**: UI polish, defect fixes, and a short user guide for the web UI (my piece of `D-12 User and administrator guide`).
+>>>>>>> 1a9f2bb6deaf13c617293d2cfbcf636048d420af
 
 **Blocked on teammates:**
 - Backend API endpoints (Hussin) — needed to replace the mock store with real calls.
