@@ -21,7 +21,14 @@ export type UseStore<T> = {
   subscribe: (listener: Listener) => () => void;
 };
 
-export function createStore<T>(creator: StateCreator<T>, persistKey?: string): UseStore<T> {
+export interface PersistOptions<T> {
+  /** What gets written to localStorage (default: the whole state). Use it to keep secrets out. */
+  partialize?: (state: T) => Partial<T>;
+  /** Runs once after saved state is merged over the defaults, e.g. to reconcile saved arrays with new seed data. */
+  rehydrate?: (loaded: T, defaults: T) => T;
+}
+
+export function createStore<T>(creator: StateCreator<T>, persistKey?: string, options: PersistOptions<T> = {}): UseStore<T> {
   let state: T;
   const listeners = new Set<Listener>();
 
@@ -33,7 +40,7 @@ export function createStore<T>(creator: StateCreator<T>, persistKey?: string): U
       state = { ...state, ...nextPartial };
       if (persistKey) {
         try {
-          localStorage.setItem(persistKey, JSON.stringify(state));
+          localStorage.setItem(persistKey, JSON.stringify(options.partialize ? options.partialize(state) : state));
         } catch (e) {
           console.warn(`Failed to persist store [${persistKey}] to localStorage`, e);
         }
@@ -80,7 +87,7 @@ export function createStore<T>(creator: StateCreator<T>, persistKey?: string): U
         if ('abortStream' in merged) {
           merged.abortStream = null;
         }
-        state = merged;
+        state = options.rehydrate ? options.rehydrate(merged, initialCreatedState) : merged;
       } else {
         state = initialCreatedState;
       }

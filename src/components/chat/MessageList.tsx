@@ -4,7 +4,16 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { MessageItem } from './MessageItem';
 import { DEFAULT_PERSONAS } from '../../constants/defaults';
 import { ArrowDownIcon } from '../ui/Icons';
-import { Logo } from '../ui/Logo';
+import { WelcomeStarfield } from './WelcomeStarfield';
+import { WelcomeLogo } from './WelcomeLogo';
+import { historyWindowStart } from '../../utils/history';
+import { resolveProfile } from '../../services/ai/modelProfiles';
+import { handleListArrowKeys } from '../../utils/keyboard';
+
+// Scroll position per conversation (PRODUCTIVITY_UX_PLAN §4), kept for this page load.
+// AT_BOTTOM means "follow the latest message" rather than a fixed offset.
+const AT_BOTTOM = -1;
+const savedScroll = new Map<string, number>();
 
 export const MessageList: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -21,10 +30,13 @@ export const MessageList: React.FC = () => {
 
   const preferences = useSettingsStore((s) => s.preferences);
   const aiConfig = useSettingsStore((s) => s.aiConfig);
+  const profiles = useSettingsStore((s) => s.profiles);
 
   const currentSession = sessions.find((s) => s.id === activeSessionId);
   const messages = useMemo(() => currentSession?.messages || [], [currentSession?.messages]);
   const prevMessageCountRef = useRef(messages.length);
+  // Current conversation for scroll bookkeeping, readable from effects without re-running them.
+  const sessionIdRef = useRef(activeSessionId);
 
   const sessionPersonaId = currentSession?.personaId || aiConfig.activePersonaId;
   const activePersona = DEFAULT_PERSONAS.find((p) => p.id === sessionPersonaId) || DEFAULT_PERSONAS[0];
@@ -34,6 +46,7 @@ export const MessageList: React.FC = () => {
     isProgrammaticScrollRef.current = true;
     scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
     lastScrollTopRef.current = scrollContainerRef.current.scrollTop;
+    if (sessionIdRef.current) savedScroll.set(sessionIdRef.current, AT_BOTTOM);
     requestAnimationFrame(() => {
       isProgrammaticScrollRef.current = false;
     });
@@ -53,6 +66,7 @@ export const MessageList: React.FC = () => {
 
     // Update last known scrollTop
     lastScrollTopRef.current = scrollTop;
+    if (activeSessionId) savedScroll.set(activeSessionId, distanceFromBottom <= 10 ? AT_BOTTOM : scrollTop);
 
     // User scrolled UP (even by a fraction of a pixel) -> detach IMMEDIATELY!
     if (delta < -0.5) {
@@ -117,13 +131,28 @@ export const MessageList: React.FC = () => {
     prevMessageCountRef.current = messages.length;
   }, [messages.length]);
 
-  // Reset scroll position when switching sessions
+  // Switching sessions: go back to where you left that conversation, or to its latest message.
   useEffect(() => {
-    isUserBrowsingUpRef.current = false;
+    sessionIdRef.current = activeSessionId;
+    const saved = activeSessionId ? savedScroll.get(activeSessionId) : undefined;
+    const restore = saved !== undefined && saved !== AT_BOTTOM;
+    isUserBrowsingUpRef.current = restore;
     requestAnimationFrame(() => {
-      setShowScrollBottomBtn(false);
-      autoScrollToBottom();
+      const el = scrollContainerRef.current;
+      if (restore && el) {
+        isProgrammaticScrollRef.current = true;
+        el.scrollTop = saved;
+        lastScrollTopRef.current = el.scrollTop;
+        setShowScrollBottomBtn(true);
+        requestAnimationFrame(() => {
+          isProgrammaticScrollRef.current = false;
+        });
+      } else {
+        setShowScrollBottomBtn(false);
+        autoScrollToBottom();
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on conversation switch only
   }, [activeSessionId]);
 
   // Auto-scroll during streaming ONLY when user is at the bottom
@@ -152,6 +181,13 @@ export const MessageList: React.FC = () => {
     }, 450);
   };
 
+  // Conversation memory (PRODUCTIVITY_UX_PLAN §6): where the model's view of this chat begins.
+  // Not shown for server-managed profiles: the app sends no history there, the gateway keeps it.
+  const historyLimit = aiConfig.historyLimit ?? 30;
+  const serverKeepsContext = resolveProfile(profiles, currentSession?.profileId).contextMode === 'server';
+  const memoryStart = serverKeepsContext ? 0 : historyWindowStart(messages, historyLimit);
+  const lastUserIndex = messages.map((m) => m.role).lastIndexOf('user');
+
   const isEmptySession =
     messages.length === 0 ||
     (messages.length === 1 && messages[0].role === 'assistant');
@@ -167,6 +203,9 @@ export const MessageList: React.FC = () => {
         overflow: 'hidden',
       }}
     >
+      {/* Welcome-only backdrop; fades out and unmounts when the conversation starts. */}
+      <WelcomeStarfield active={isEmptySession} />
+
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
@@ -178,8 +217,10 @@ export const MessageList: React.FC = () => {
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '1rem clamp(0.75rem, 3vw, 1.5rem) calc(6.5rem + var(--safe-area-bottom))',
+          padding: '1rem clamp(0.75rem, 3vw, 1.5rem) calc(var(--chat-composer-h, 10rem) + 0.5rem)',
           outline: 'none',
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <div
@@ -212,7 +253,7 @@ export const MessageList: React.FC = () => {
                   justifyContent: 'center',
                 }}
               >
-                <Logo size="hero" style={{ height: 'clamp(56px, 10vw, 76px)' }} />
+                <WelcomeLogo />
               </div>
 
               <h1
@@ -239,8 +280,9 @@ export const MessageList: React.FC = () => {
                 Orbital telemetry, mission flight dynamics, and aerospace systems analysis.
               </p>
 
-              {/* Starter Suggestions */}
+              {/* Starter Suggestions (↑/↓ move between them) */}
               <div
+                onKeyDown={handleListArrowKeys}
                 style={{
                   width: '100%',
                   maxWidth: '560px',
@@ -293,6 +335,8 @@ export const MessageList: React.FC = () => {
             </div>
           ) : (
             <div
+              role="log"
+              aria-label="Conversation"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -305,11 +349,10 @@ export const MessageList: React.FC = () => {
                   index === messages.length - 1;
 
                 return (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    isLatestAssistant={isLatestAssistant}
-                  />
+                  <React.Fragment key={message.id}>
+                    {index === memoryStart && memoryStart > 0 && <MemoryDivider limit={historyLimit} />}
+                    <MessageItem message={message} isLatestAssistant={isLatestAssistant} isLastUser={index === lastUserIndex} />
+                  </React.Fragment>
                 );
               })}
             </div>
@@ -317,12 +360,13 @@ export const MessageList: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating "Return to Bottom" Button Centered in Chat Layout */}
+      {/* Floating "Return to Bottom" button: centred just above the status dock's row, inside the
+          composer's fade zone, so it never overlaps the astronaut, the status or the input. */}
       {showScrollBottomBtn && (
         <div
           style={{
             position: 'absolute',
-            bottom: 'calc(76px + var(--safe-area-bottom))',
+            bottom: 'calc(var(--chat-composer-h, 10rem) - var(--composer-fade) + 0.25rem)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 35,
@@ -375,3 +419,10 @@ export const MessageList: React.FC = () => {
     </div>
   );
 };
+
+// Marks where older messages stop being sent to the model, so long chats don't fail silently.
+const MemoryDivider: React.FC<{ limit: number }> = ({ limit }) => (
+  <div className="memory-divider" role="note">
+    <span>Earlier messages aren’t sent to the model. Using the last {limit} messages.</span>
+  </div>
+);

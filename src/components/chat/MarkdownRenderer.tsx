@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { CopyIcon, CheckIcon } from '../ui/Icons';
+import React from 'react';
+import { CodeBlock } from './CodeBlock';
 
 interface MarkdownRendererProps {
   content: string;
   isStreaming?: boolean;
   direction?: 'ltr' | 'rtl' | 'auto';
+  onCitationClick?: (n: number) => void;
+  activeCitation?: number | null;
 }
 
 function sanitizeStreamingMarkdown(text: string, isStreaming?: boolean): string {
@@ -60,7 +62,14 @@ function sanitizeStreamingMarkdown(text: string, isStreaming?: boolean): string 
   return sanitized;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming, direction = 'auto' }) => {
+// Knowledge Copilot: turns [n] markers into buttons that select source n in the Evidence panel.
+interface CitationOptions {
+  onClick: (n: number) => void;
+  active?: number | null;
+}
+
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isStreaming, direction = 'auto', onCitationClick, activeCitation }) => {
+  const citations = onCitationClick ? { onClick: onCitationClick, active: activeCitation } : undefined;
   const safeContent = sanitizeStreamingMarkdown(content, isStreaming);
   return (
     <div
@@ -70,50 +79,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, isS
         direction: direction === 'auto' ? undefined : direction,
       }}
     >
-      {parseMarkdown(safeContent, direction)}
-      {isStreaming && <span className="stream-cursor" title="Streaming..." />}
+      {parseMarkdown(safeContent, direction, citations, isStreaming)}
     </div>
   );
 };
 
-const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, code }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="code-block-container">
-      <div className="code-block-header">
-        <span>{language || 'code'}</span>
-        <button
-          onClick={handleCopy}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.2rem 0.5rem',
-            borderRadius: 'var(--radius-xs)',
-            fontSize: 'var(--text-xs)',
-            background: copied ? 'var(--accent-surface)' : 'rgba(255, 255, 255, 0.05)',
-            color: copied ? 'var(--accent-primary)' : 'inherit',
-          }}
-        >
-          {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
-          <span>{copied ? 'Copied' : 'Copy'}</span>
-        </button>
-      </div>
-      <pre className="code-block-content">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
-};
-
-function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto'): React.ReactNode[] {
+function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto', citations?: CitationOptions, isStreaming = false): React.ReactNode[] {
   if (!text) return [];
 
   const elements: React.ReactNode[] = [];
@@ -125,7 +96,7 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
       const match = part.match(/^```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```$/);
       const language = match ? match[1] : '';
       const code = match ? match[2] : part.slice(3, -3);
-      elements.push(<CodeBlock key={`code-${partIndex}`} language={language} code={code.trimEnd()} />);
+      elements.push(<CodeBlock key={`code-${partIndex}`} language={language} code={code.trimEnd()} live={isStreaming} />);
       return;
     }
 
@@ -143,7 +114,7 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
           <p key={key} dir={direction}>
             {currentParagraph.map((pLine, i) => (
               <React.Fragment key={i}>
-                {renderInline(pLine)}
+                {renderInline(citations, pLine)}
                 {i < currentParagraph.length - 1 && <br />}
               </React.Fragment>
             ))}
@@ -158,7 +129,7 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
         elements.push(
           <ul key={key} dir={direction}>
             {listItems.map((item, idx) => (
-              <li key={idx} dir={direction}>{renderInline(item)}</li>
+              <li key={idx} dir={direction}>{renderInline(citations, item)}</li>
             ))}
           </ul>
         );
@@ -195,7 +166,7 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
               <thead>
                 <tr>
                   {headerCols.map((col, idx) => (
-                    <th key={`th-${idx}`}>{renderInline(col.trim())}</th>
+                    <th key={`th-${idx}`}>{renderInline(citations, col.trim())}</th>
                   ))}
                 </tr>
               </thead>
@@ -212,7 +183,7 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
                   return (
                     <tr key={`tr-${rIdx}`}>
                       {cells.slice(0, colCount).map((col, cIdx) => (
-                        <td key={`td-${rIdx}-${cIdx}`}>{renderInline(col.trim())}</td>
+                        <td key={`td-${rIdx}-${cIdx}`}>{renderInline(citations, col.trim())}</td>
                       ))}
                     </tr>
                   );
@@ -234,21 +205,21 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
-        elements.push(<h1 key={`h1-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(trimmed.slice(2))}</h1>);
+        elements.push(<h1 key={`h1-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(citations, trimmed.slice(2))}</h1>);
         return;
       }
       if (trimmed.startsWith('## ')) {
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
-        elements.push(<h2 key={`h2-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(trimmed.slice(3))}</h2>);
+        elements.push(<h2 key={`h2-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(citations, trimmed.slice(3))}</h2>);
         return;
       }
       if (trimmed.startsWith('### ')) {
         flushParagraph(`fp-${partIndex}-${lineIdx}`);
         flushList(`fl-${partIndex}-${lineIdx}`);
         flushTable(`ft-${partIndex}-${lineIdx}`);
-        elements.push(<h3 key={`h3-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(trimmed.slice(4))}</h3>);
+        elements.push(<h3 key={`h3-${partIndex}-${lineIdx}`} dir={direction}>{renderInline(citations, trimmed.slice(4))}</h3>);
         return;
       }
 
@@ -259,7 +230,7 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
         flushTable(`ft-${partIndex}-${lineIdx}`);
         elements.push(
           <blockquote key={`bq-${partIndex}-${lineIdx}`} dir={direction}>
-            {renderInline(trimmed.slice(2))}
+            {renderInline(citations, trimmed.slice(2))}
           </blockquote>
         );
         return;
@@ -314,11 +285,27 @@ function parseMarkdown(text: string, direction: 'ltr' | 'rtl' | 'auto' = 'auto')
   return elements;
 }
 
-function renderInline(text: string): React.ReactNode {
-  // Parse inline elements: `code`, **bold**, *italic*
-  const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
+function renderInline(citations: CitationOptions | undefined, text: string): React.ReactNode {
+  // Parse inline elements: `code`, **bold**, *italic*, and [n] citation markers when enabled
+  const pattern = citations ? /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[\d{1,2}\])/g : /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const tokens = text.split(pattern);
 
   return tokens.map((token, idx) => {
+    if (citations && /^\[\d{1,2}\]$/.test(token)) {
+      const n = Number(token.slice(1, -1));
+      return (
+        <button
+          key={idx}
+          type="button"
+          className="citation-marker"
+          aria-pressed={citations.active === n}
+          aria-label={`Show source ${n}`}
+          onClick={() => citations.onClick(n)}
+        >
+          {n}
+        </button>
+      );
+    }
     if (token.startsWith('`') && token.endsWith('`') && token.length > 2) {
       return <code key={idx} className="ltr-isolated">{token.slice(1, -1)}</code>;
     }

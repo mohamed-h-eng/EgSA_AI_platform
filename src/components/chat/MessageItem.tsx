@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ChatMessage, TextDirection } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { CopyIcon, CheckIcon, RefreshCwIcon, PencilIcon, ArrowUpIcon, AlignLeftIcon, AlignRightIcon } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { AnswerFeedback } from '../feedback/AnswerFeedback';
+import { EDIT_LAST_MESSAGE_EVENT } from '../../utils/keyboard';
 
 interface MessageItemProps {
   message: ChatMessage;
   isLatestAssistant: boolean;
+  /** The newest user message: ↑ in an empty chat box opens its editor. */
+  isLastUser?: boolean;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssistant }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssistant, isLastUser }) => {
   const [copied, setCopied] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -19,8 +23,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
   const globalDirection = useSettingsStore((s) => s.preferences?.textDirection);
   const [localDir, setLocalDir] = useState<TextDirection | undefined>(message.direction);
 
-  const effectiveDir: TextDirection =
-    localDir || (globalDirection === 'ltr' || globalDirection === 'rtl' ? globalDirection : 'auto');
+  const effectiveDir: TextDirection = localDir || (globalDirection === 'ltr' || globalDirection === 'rtl' ? globalDirection : 'auto');
 
   const handleToggleDirection = () => {
     // If auto or rtl, toggle to ltr; if ltr, toggle to rtl
@@ -30,7 +33,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
 
   const isStreaming = useChatStore((s) => s.isStreaming);
   const regenerateResponse = useChatStore((s) => s.regenerateResponse);
-  const sendMessage = useChatStore((s) => s.sendMessage);
+  const editAndResend = useChatStore((s) => s.editAndResend);
 
   const isUser = message.role === 'user';
 
@@ -45,6 +48,16 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
     setIsEditing(true);
   };
 
+  useEffect(() => {
+    if (!isLastUser) return;
+    const openEditor = () => {
+      setEditedContent(message.content);
+      setIsEditing(true);
+    };
+    window.addEventListener(EDIT_LAST_MESSAGE_EVENT, openEditor);
+    return () => window.removeEventListener(EDIT_LAST_MESSAGE_EVENT, openEditor);
+  }, [isLastUser, message.content]);
+
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedContent(message.content);
@@ -52,7 +65,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
 
   const handleSendEdited = () => {
     if (!editedContent.trim() || isStreaming) return;
-    sendMessage(editedContent.trim());
+    // Replaces this question and everything after it (no duplicate topics in the conversation).
+    void editAndResend(message.id, editedContent.trim());
     setIsEditing(false);
   };
 
@@ -182,6 +196,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
             maxWidth: 'min(88%, 680px)',
             backgroundColor: 'var(--msg-user-bg)',
             color: 'var(--msg-user-text)',
+            border: '1px solid var(--msg-user-border)',
             borderRadius: '18px 18px 4px 18px',
             padding: '0.65rem 1rem',
             fontSize: 'var(--chat-font-size, var(--text-base))',
@@ -193,20 +208,18 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
             textAlign: 'start',
           }}
         >
+          <span className="visually-hidden">You said: </span>
           {message.content}
         </div>
 
         {/* Subtle Apple Hover Action Bar for User Message */}
         <div
-          className="touch-action-visible"
+          className={`touch-action-visible message-actions${isHovered ? ' is-visible' : ''}`}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.35rem',
             marginTop: '0.3rem',
-            opacity: isHovered ? 1 : 0,
-            pointerEvents: isHovered ? 'auto' : 'none',
-            transition: 'opacity var(--transition-fast)',
           }}
         >
           <button
@@ -278,14 +291,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
     >
       {/* Editorial Content Container */}
       <div style={{ width: '100%', padding: '0.25rem 0' }} dir={effectiveDir}>
-        <MarkdownRenderer
-          content={message.content}
-          isStreaming={message.status === 'streaming'}
-          direction={effectiveDir}
-        />
+        <span className="visually-hidden">Assistant said: </span>
+        <MarkdownRenderer content={message.content} isStreaming={message.status === 'streaming'} direction={effectiveDir} />
 
         {message.error && (
           <div
+            role="alert"
             style={{
               marginTop: '0.5rem',
               padding: '0.5rem 0.75rem',
@@ -301,19 +312,16 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
         )}
       </div>
 
-      {/* Subtle Apple Hover Action Bar */}
+      {/* Answer actions: rating (always offered on the latest answer, kept once rated), copy, direction,
+          retry, and which model answered. Older answers show them on hover or keyboard focus. */}
       {!isStreaming && message.content && (
-        <div
-          className="touch-action-visible"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            marginTop: '0.4rem',
-            opacity: isHovered ? 1 : 0,
-            pointerEvents: isHovered ? 'auto' : 'none',
-            transition: 'opacity var(--transition-fast)',
-          }}
+        <AnswerFeedback
+          answerId={message.id}
+          surface="chat"
+          getMeta={() => chatFeedbackMeta(message)}
+          ratable={message.status !== 'error'}
+          rowClassName={`touch-action-visible message-actions${isHovered || isLatestAssistant ? ' is-visible' : ''}`}
+          rowStyle={{ marginTop: '0.4rem', gap: '0.35rem' }}
         >
           <button
             onClick={handleCopy}
@@ -370,14 +378,27 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
               style={{
                 fontSize: '0.6875rem',
                 color: 'var(--text-muted)',
-                marginLeft: '0.5rem',
+                marginInlineStart: '0.5rem',
               }}
+              title="Response time"
             >
               {(message.stats.latencyMs / 1000).toFixed(2)}s
             </span>
           )}
-        </div>
+        </AnswerFeedback>
       )}
     </div>
   );
 };
+
+// What a chat rating records: the question this answer replied to, and which profile/model wrote it.
+function chatFeedbackMeta(message: ChatMessage) {
+  const session = useChatStore.getState().sessions.find((sess) => sess.messages.some((m) => m.id === message.id));
+  const index = session?.messages.findIndex((m) => m.id === message.id) ?? -1;
+  const question = [...(session?.messages.slice(0, Math.max(0, index)) || [])].reverse().find((m) => m.role === 'user')?.content || '';
+  return {
+    question,
+    answerExcerpt: message.content,
+    context: [message.profileName, message.modelId].filter(Boolean).join(' · ') || 'Chat',
+  };
+}

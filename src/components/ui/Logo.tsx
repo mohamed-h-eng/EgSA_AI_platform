@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import logoLight from '../../assets/logo_light.webp';
 import logoDark from '../../assets/logo_dark.webp';
-import { useSettingsStore } from '../../stores/settingsStore';
+import { useIsDarkTheme } from '../../hooks/useResolvedTheme';
 
 export interface LogoProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   size?: 'sm' | 'md' | 'lg' | 'hero';
@@ -16,24 +16,8 @@ export const Logo: React.FC<LogoProps> = ({
   alt = 'Egyptian Space Agency (EgSA)',
   ...props
 }) => {
-  const theme = useSettingsStore((s) => s.preferences.theme);
-
-  const [systemIsDark, setSystemIsDark] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const update = (e: MediaQueryListEvent) => setSystemIsDark(e.matches);
-    mediaQuery.addEventListener('change', update);
-    return () => mediaQuery.removeEventListener('change', update);
-  }, []);
-
-  const isDark =
-    variant === 'dark' ||
-    (variant === 'auto' && (theme === 'dark' || (theme === 'system' && systemIsDark)));
+  const themeIsDark = useIsDarkTheme();
+  const isDark = variant === 'dark' || (variant === 'auto' && themeIsDark);
 
   const logoSrc = isDark ? logoDark : logoLight;
   const mixBlendMode = isDark ? 'screen' : 'multiply';

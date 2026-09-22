@@ -6,12 +6,19 @@ import {
   SettingsIcon,
   DownloadIcon,
   MessageSquareIcon,
+  BookOpenIcon,
+  PinIcon,
   PanelLeftIcon,
   SunIcon,
   MoonIcon,
+  DatabaseIcon,
 } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useDocumentStore } from '../../stores/documentStore';
+import { useKnowledgeStore } from '../../stores/knowledgeStore';
+import { groupByDate } from '../../utils/dateGroups';
+import { useNavigationStore, type AppView } from '../../stores/navigationStore';
 import { DeleteChatModal } from '../chat/DeleteChatModal';
 import { Logo } from '../ui/Logo';
 import { useIsMobile } from '../../hooks/useMediaQuery';
@@ -34,10 +41,27 @@ export const Sidebar: React.FC = () => {
   const setSearchQuery = useChatStore((s) => s.setSearchQuery);
   const toggleSidebar = useChatStore((s) => s.toggleSidebar);
   const exportConversation = useChatStore((s) => s.exportConversation);
+  const togglePinSession = useChatStore((s) => s.togglePinSession);
 
   const openSettings = useSettingsStore((s) => s.openSettings);
   const preferences = useSettingsStore((s) => s.preferences);
   const setTheme = useSettingsStore((s) => s.setTheme);
+
+  const openDocumentManager = useDocumentStore((s) => s.openManager);
+
+  const activeView = useNavigationStore((s) => s.activeView);
+  const setView = useNavigationStore((s) => s.setView);
+  const isKnowledgeView = activeView === 'knowledge';
+
+  const threads = useKnowledgeStore((s) => s.threads);
+  const activeThreadId = useKnowledgeStore((s) => s.activeThreadId);
+  const createThread = useKnowledgeStore((s) => s.createThread);
+  const selectThread = useKnowledgeStore((s) => s.selectThread);
+  const renameThread = useKnowledgeStore((s) => s.renameThread);
+  const deleteThread = useKnowledgeStore((s) => s.deleteThread);
+  const exportThread = useKnowledgeStore((s) => s.exportThread);
+  const togglePinThread = useKnowledgeStore((s) => s.togglePinThread);
+  const documentCount = useDocumentStore((s) => s.documents.length);
 
   const isDarkMode =
     preferences.theme === 'dark' ||
@@ -49,24 +73,50 @@ export const Sidebar: React.FC = () => {
     setTheme(isDarkMode ? 'light' : 'dark');
   };
 
+  // The history list follows the active page: chat sessions, or Knowledge Copilot threads.
+  const handleNavigate = (view: AppView) => {
+    setView(view);
+    if (isMobile) toggleSidebar();
+  };
+
   const handleSelectSession = (id: string) => {
-    selectSession(id);
+    if (isKnowledgeView) selectThread(id);
+    else selectSession(id);
     if (isMobile) {
       toggleSidebar();
     }
   };
 
   const handleCreateNew = () => {
-    createNewSession();
+    if (isKnowledgeView) createThread();
+    else createNewSession();
     if (isMobile) {
       toggleSidebar();
     }
   };
 
-  const filteredSessions = sessions.filter((s) =>
-    s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.messages.some((m) => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const handleExport = (id: string) => (isKnowledgeView ? exportThread(id) : exportConversation(id, 'markdown'));
+  const handleDelete = (id: string) => (isKnowledgeView ? deleteThread(id) : deleteSession(id));
+  const handleTogglePin = (id: string) => (isKnowledgeView ? togglePinThread(id) : togglePinSession(id));
+
+  const activeItemId = isKnowledgeView ? activeThreadId : activeSessionId;
+  const listItems = isKnowledgeView
+    ? threads.map((t) => ({ id: t.id, title: t.title, pinned: !!t.pinned, updatedAt: t.updatedAt, text: t.turns.map((u) => `${u.question} ${u.answer}`).join(' ') }))
+    : sessions.map((s) => ({ id: s.id, title: s.title, pinned: !!s.pinned, updatedAt: s.updatedAt, text: s.messages.map((m) => m.content).join(' ') }));
+  const query = searchQuery.toLowerCase();
+  const filteredSessions = listItems.filter((item) => item.title.toLowerCase().includes(query) || item.text.toLowerCase().includes(query));
+
+  // Pinned first, then by date (Today, Yesterday, …). While searching, one flat list of results.
+  const pinnedItems = filteredSessions.filter((i) => i.pinned).sort((a, b) => b.updatedAt - a.updatedAt);
+  const sections: Array<{ label: string; items: typeof filteredSessions }> = searchQuery.trim()
+    ? [{ label: 'Results', items: [...filteredSessions].sort((a, b) => b.updatedAt - a.updatedAt) }]
+    : [
+        ...(pinnedItems.length > 0 ? [{ label: 'Pinned', items: pinnedItems }] : []),
+        ...groupByDate(
+          filteredSessions.filter((i) => !i.pinned),
+          (i) => i.updatedAt
+        ).map((g) => ({ label: g.group, items: g.items })),
+      ];
 
   const handleStartRename = (id: string, currentTitle: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,7 +126,8 @@ export const Sidebar: React.FC = () => {
 
   const handleSaveRename = (id: string) => {
     if (editingTitle.trim()) {
-      renameSession(id, editingTitle.trim());
+      if (isKnowledgeView) renameThread(id, editingTitle.trim());
+      else renameSession(id, editingTitle.trim());
     }
     setEditingSessionId(null);
   };
@@ -163,7 +214,8 @@ export const Sidebar: React.FC = () => {
                 borderRadius: 'var(--radius-xs)',
                 color: 'var(--text-secondary)',
               }}
-              title="New Conversation (Cmd+N)"
+              title={isKnowledgeView ? 'New Research' : 'New Conversation (Cmd+N)'}
+              aria-label={isKnowledgeView ? 'New research' : 'New conversation'}
             >
               <SquarePenIcon size={16} />
             </button>
@@ -185,6 +237,18 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
         </div>
+
+      {/* Primary navigation: general chat vs. Knowledge Copilot */}
+      <nav aria-label="Primary" style={{ padding: 'var(--space-2) var(--space-2) var(--space-1)', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <button type="button" className="nav-item" aria-current={!isKnowledgeView ? 'page' : undefined} onClick={() => handleNavigate('chat')}>
+          <MessageSquareIcon size={15} />
+          Chat
+        </button>
+        <button type="button" className="nav-item" aria-current={isKnowledgeView ? 'page' : undefined} onClick={() => handleNavigate('knowledge')}>
+          <BookOpenIcon size={15} />
+          Knowledge Copilot
+        </button>
+      </nav>
 
       {/* Search Input Field */}
       <div style={{ padding: '0.65rem 0.85rem 0.45rem' }}>
@@ -232,19 +296,6 @@ export const Sidebar: React.FC = () => {
           gap: '2px',
         }}
       >
-        <div
-          style={{
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-            color: 'var(--text-muted)',
-            padding: '0.4rem 0.5rem 0.2rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-          }}
-        >
-          Recent
-        </div>
-
         {filteredSessions.length === 0 ? (
           <div
             style={{
@@ -254,17 +305,30 @@ export const Sidebar: React.FC = () => {
               color: 'var(--text-muted)',
             }}
           >
-            No conversations found
+            {isKnowledgeView ? (searchQuery ? 'No research found' : 'No research yet') : 'No conversations found'}
           </div>
         ) : (
-          filteredSessions.map((session) => {
-            const isActive = session.id === activeSessionId;
+          sections.map((section) => (
+            <div key={section.label} role="group" aria-label={section.label} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div className="sidebar-group-label">{section.label}</div>
+              {section.items.map((session) => {
+            const isActive = session.id === activeItemId;
             const isEditing = editingSessionId === session.id;
 
             return (
               <div
                 key={session.id}
+                className="sidebar-row"
+                role="button"
+                tabIndex={0}
+                aria-current={isActive ? 'true' : undefined}
                 onClick={() => handleSelectSession(session.id)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleSelectSession(session.id);
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -292,13 +356,23 @@ export const Sidebar: React.FC = () => {
                     flex: 1,
                   }}
                 >
-                  <MessageSquareIcon
-                    size={14}
-                    style={{
-                      color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
-                      flexShrink: 0,
-                    }}
-                  />
+                  {isKnowledgeView ? (
+                    <BookOpenIcon
+                      size={14}
+                      style={{
+                        color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                        flexShrink: 0,
+                      }}
+                    />
+                  ) : (
+                    <MessageSquareIcon
+                      size={14}
+                      style={{
+                        color: isActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
 
                   {isEditing ? (
                     <input
@@ -353,7 +427,25 @@ export const Sidebar: React.FC = () => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      exportConversation(session.id, 'markdown');
+                      handleTogglePin(session.id);
+                    }}
+                    title={session.pinned ? 'Unpin' : 'Pin to top'}
+                    aria-label={session.pinned ? `Unpin ${session.title}` : `Pin ${session.title}`}
+                    aria-pressed={session.pinned}
+                    className="apple-button"
+                    style={{
+                      padding: '0.15rem',
+                      width: '20px',
+                      height: '20px',
+                      color: session.pinned ? 'var(--text-primary)' : 'var(--text-muted)',
+                    }}
+                  >
+                    <PinIcon size={12} style={{ fill: session.pinned ? 'currentColor' : 'none' }} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExport(session.id);
                     }}
                     title="Export Markdown"
                     className="apple-button"
@@ -385,7 +477,9 @@ export const Sidebar: React.FC = () => {
                 </div>
               </div>
             );
-          })
+              })}
+            </div>
+          ))
         )}
       </div>
 
@@ -418,21 +512,43 @@ export const Sidebar: React.FC = () => {
           <span>Settings</span>
         </button>
 
-        {/* Dark Mode Toggle Button */}
-        <button
-          onClick={toggleTheme}
-          className="apple-button"
-          style={{
-            width: '28px',
-            height: '28px',
-            padding: 0,
-            borderRadius: 'var(--radius-xs)',
-            color: 'var(--text-secondary)',
-          }}
-          title={isDarkMode ? 'Switch to Light Appearance' : 'Switch to Dark Appearance'}
-        >
-          {isDarkMode ? <SunIcon size={14} /> : <MoonIcon size={14} />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+          {/* Knowledge Base: document upload/management entry point (KB-013, ADM-003) */}
+          <button
+            onClick={() => {
+              openDocumentManager();
+              if (isMobile) toggleSidebar();
+            }}
+            className="apple-button"
+            style={{
+              width: '28px',
+              height: '28px',
+              padding: 0,
+              borderRadius: 'var(--radius-xs)',
+              color: 'var(--text-secondary)',
+              position: 'relative',
+            }}
+            title={`Administration: documents and service health (${documentCount} document${documentCount === 1 ? '' : 's'})`}
+          >
+            <DatabaseIcon size={14} />
+          </button>
+
+          {/* Dark Mode Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className="apple-button"
+            style={{
+              width: '28px',
+              height: '28px',
+              padding: 0,
+              borderRadius: 'var(--radius-xs)',
+              color: 'var(--text-secondary)',
+            }}
+            title={isDarkMode ? 'Switch to Light Appearance' : 'Switch to Dark Appearance'}
+          >
+            {isDarkMode ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+          </button>
+        </div>
       </div>
 
       {/* Verification Modal for Chat Deletion */}
@@ -441,7 +557,7 @@ export const Sidebar: React.FC = () => {
         chatTitle={sessionToDelete?.title || ''}
         onConfirm={() => {
           if (sessionToDelete) {
-            deleteSession(sessionToDelete.id);
+            handleDelete(sessionToDelete.id);
             setSessionToDelete(null);
           }
         }}

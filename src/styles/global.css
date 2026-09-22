@@ -1,4 +1,5 @@
 @import './tokens.css';
+@import './components.css';
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -153,17 +154,6 @@ svg {
   }
 }
 
-.stream-cursor {
-  display: inline-block;
-  width: 3px;
-  height: 1.15em;
-  background-color: var(--accent-primary);
-  vertical-align: -0.16em;
-  margin-left: 3px;
-  border-radius: 2px;
-  animation: appleCaretBreathe 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  transition: opacity var(--transition-fast);
-}
 
 /* Subtle emerging stream micro-transition */
 @keyframes tokenGlideIn {

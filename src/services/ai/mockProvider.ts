@@ -1,5 +1,6 @@
 import type { LLMProvider } from './base';
 import type { LLMRequestParams, StreamChunk, TokenStats } from '../../types';
+import { mockCodeAnswer } from './mockCodeSamples';
 
 export class MockLLMProvider implements LLMProvider {
   id = 'mock';
@@ -75,7 +76,12 @@ export class MockLLMProvider implements LLMProvider {
   private generateContextualResponse(query: string, params: LLMRequestParams): string {
     const q = query.toLowerCase();
 
-    if (q.includes('hello') || q.includes('hi') || q.includes('hey')) {
+    // Coding prompts get a real sample in the requested language (or a code review), so code
+    // highlighting and checks can be shown without a model (CODE_BLOCKS_PLAN §3).
+    const codeAnswer = mockCodeAnswer(query);
+    if (codeAnswer) return codeAnswer;
+
+    if (/(hello|hi|hey|salam|مرحبا)/i.test(q)) {
       return `Greetings! I am connected via **${params.modelId}**.\n\n` +
         `How can I assist your mission today? You can ask me to:\n` +
         `* 🛰️ Analyze satellite telemetry and orbital data\n` +
@@ -83,27 +89,6 @@ export class MockLLMProvider implements LLMProvider {
         `* ⚙️ Configure custom themes, personas, and model parameters\n` +
         `* 📊 Generate comparative performance reports and diagrams\n\n` +
         `What shall we explore first?`;
-    }
-
-    if (q.includes('code') || q.includes('component') || q.includes('react') || q.includes('typescript')) {
-      return `Here is a modular TypeScript pattern designed for high extensibility:\n\n` +
-        `### Extensible Plugin Registry Pattern\n\n` +
-        `\`\`\`typescript\n` +
-        `export interface Plugin<TContext = unknown> {\n` +
-        `  id: string;\n` +
-        `  version: string;\n` +
-        `  initialize: (context: TContext) => Promise<void>;\n` +
-        `  execute: (input: unknown) => Promise<unknown>;\n` +
-        `}\n\n` +
-        `export class PluginManager<TContext> {\n` +
-        `  private plugins = new Map<string, Plugin<TContext>>();\n\n` +
-        `  register(plugin: Plugin<TContext>) {\n` +
-        `    this.plugins.set(plugin.id, plugin);\n` +
-        `    console.info(\`[Registry] Registered \${plugin.id}@\${plugin.version}\`);\n` +
-        `  }\n` +
-        `}\n` +
-        `\`\`\`\n\n` +
-        `> **Architectural Note:** Decoupling handlers via a pluggable registry allows seamless addition of new LLM capabilities without touching core view components.`;
     }
 
     if (q.includes('space') || q.includes('egsa') || q.includes('satellite') || q.includes('orbit')) {

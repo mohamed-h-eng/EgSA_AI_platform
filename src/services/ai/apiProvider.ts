@@ -140,6 +140,7 @@ export async function fetchAvailableModels(options: {
   endpointUrl: string;
   apiKey?: string;
   useProxy?: boolean;
+  signal?: AbortSignal;
 }): Promise<{ ok: boolean; models: string[]; error?: string }> {
   const rawUrl = options.endpointUrl.trim().replace(/\/+$/, '');
   if (!rawUrl) {
@@ -169,7 +170,7 @@ export async function fetchAvailableModels(options: {
         headers['anthropic-version'] = '2023-06-01';
       }
 
-      const res = await fetch(target, { method: 'GET', headers });
+      const res = await fetch(target, { method: 'GET', headers, signal: options.signal });
       if (!res.ok) {
         let errText = '';
         try {
@@ -219,6 +220,7 @@ export async function fetchAvailableModels(options: {
         return { ok: true, models: modelList };
       }
     } catch (err: any) {
+      if (options.signal?.aborted) throw err;
       lastError = err.message || 'Network request failed';
     }
   }
@@ -254,7 +256,8 @@ export async function testEndpointConnection(options: {
     if (fetched.ok && fetched.models.length > 0) {
       targetModel = fetched.models[0];
     } else {
-      targetModel = 'gpt-4o-mini';
+      // No silent cloud-model fallback (CHAT-002): say what's missing instead.
+      return { ok: false, message: 'No model to test. Choose a model, or retrieve the list from the endpoint first.' };
     }
   }
   const startTime = Date.now();
@@ -388,10 +391,9 @@ export class CustomAPIProvider implements LLMProvider {
       headers['X-Title'] = 'EgSA AI Platform';
     }
 
-    const effectiveModel =
-      this.options.modelId?.trim() ||
-      params.modelId ||
-      'gpt-4o-mini';
+    const effectiveModel = this.options.modelId?.trim() || params.modelId;
+    // Model profiles (CHAT-006) always resolve a model before a live call; never guess one.
+    if (!effectiveModel) throw new Error('No model configured for this request.');
 
     const messagesPayload: Array<{ role: string; content: string }> = [];
     if (params.systemPrompt?.trim()) {
@@ -409,12 +411,20 @@ export class CustomAPIProvider implements LLMProvider {
       }
     }
 
+    // Server-managed context: the gateway stores the conversation, so only the new message is
+    // sent, plus ids telling it which conversation it belongs to (PROMPTING_CONTEXT_PLAN §3a).
+    if (params.conversation) headers['X-Conversation-Id'] = params.conversation.conversationId;
     const bodyStr = JSON.stringify({
       model: effectiveModel,
       messages: messagesPayload,
       temperature: params.temperature ?? 0.7,
       max_tokens: params.maxTokens ?? 2048,
       stream: true,
+      ...(params.conversation && {
+        conversation_id: params.conversation.conversationId,
+        message_id: params.conversation.messageId,
+        ...(params.conversation.replacesMessageId && { replaces_message_id: params.conversation.replacesMessageId }),
+      }),
     });
 
     /** Fires a single fetch attempt at the given resolved URL and streams chunks. */

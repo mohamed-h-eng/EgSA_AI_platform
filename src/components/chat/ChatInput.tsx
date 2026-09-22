@@ -4,10 +4,33 @@ import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_PERSONAS } from '../../constants/defaults';
 import type { TextDirection } from '../../types';
+import { useDraft } from '../../utils/drafts';
+import { AnswerStatusDock } from './AnswerStatusDock';
+import { useChatAnswerStage } from '../../hooks/useAnswerStage';
+import { EDIT_LAST_MESSAGE_EVENT } from '../../utils/keyboard';
 
 export const ChatInput: React.FC = () => {
-  const [input, setInput] = useState('');
+  // Unsent text is kept per conversation (PRODUCTIVITY_UX_PLAN §4).
+  const activeSessionId = useChatStore((s) => s.activeSessionId);
+  const [input, setInput] = useDraft(activeSessionId);
+  const answerStage = useChatAnswerStage();
+  const openSettings = useSettingsStore((s) => s.openSettings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  // Publish the composer's real height (fade + status dock + input, which grows with the text) so
+  // the message list's end padding and the scroll-to-latest button stay clear of it.
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    const root = document.documentElement.style;
+    const ro = new ResizeObserver(() => root.setProperty('--chat-composer-h', `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.removeProperty('--chat-composer-h');
+    };
+  }, []);
 
   const sendMessage = useChatStore((s) => s.sendMessage);
   const isStreaming = useChatStore((s) => s.isStreaming);
@@ -172,9 +195,15 @@ export const ChatInput: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, []);
+  }, [setInput]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // ↑ in an empty box edits your last message (PRODUCTIVITY_UX_PLAN §1).
+    if (e.key === 'ArrowUp' && !input && !isStreaming && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent(EDIT_LAST_MESSAGE_EVENT));
+      return;
+    }
     if (preferences.sendOnEnter && e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -185,13 +214,16 @@ export const ChatInput: React.FC = () => {
 
   return (
     <div
+      ref={composerRef}
       style={{
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        padding: '0.5rem clamp(0.5rem, 3vw, 1.25rem) calc(0.75rem + var(--safe-area-bottom))',
-        background: 'linear-gradient(to top, var(--bg-primary) 70%, transparent 100%)',
+        // Top padding = fade zone (--composer-fade) + the status dock's row. Messages fade out in the
+        // zone and the astronaut + status sit on a solid background, never over text.
+        padding: 'calc(var(--composer-fade) + 2.75rem) clamp(0.5rem, 3vw, 1.25rem) calc(0.75rem + var(--safe-area-bottom))',
+        background: 'linear-gradient(to bottom, transparent 0, var(--bg-primary) var(--composer-fade))',
         display: 'flex',
         justifyContent: 'center',
         pointerEvents: 'none',
@@ -203,8 +235,10 @@ export const ChatInput: React.FC = () => {
           width: '100%',
           maxWidth: 'var(--content-max-width)',
           pointerEvents: 'auto',
+          position: 'relative',
         }}
       >
+        <AnswerStatusDock stage={answerStage} onOpen={() => openSettings('model')} />
         <div
           style={{
             display: 'flex',
@@ -223,6 +257,7 @@ export const ChatInput: React.FC = () => {
           {/* Multiline auto-expanding textarea */}
           <textarea
             ref={textareaRef}
+            data-composer
             className="chat-textarea"
             value={input}
             onChange={(e) => setInput(e.target.value)}

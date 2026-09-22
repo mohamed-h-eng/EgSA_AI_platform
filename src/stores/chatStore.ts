@@ -4,6 +4,8 @@ import { providerRegistry } from '../services/ai/providerRegistry';
 import { SmoothStreamBuffer } from '../services/ai/streamBuffer';
 import { useSettingsStore } from './settingsStore';
 import { DEFAULT_PERSONAS } from '../constants/defaults';
+import { defaultProfile, resolveProfile, resolveModelTarget } from '../services/ai/modelProfiles';
+import { buildAppContext } from '../services/ai/context';
 
 interface ChatState {
   sessions: ConversationSession[];
@@ -15,15 +17,25 @@ interface ChatState {
 
   // Actions
   createNewSession: (personaId?: string) => string;
+  /** CHAT-006: switch the model profile; the next answer uses it. */
+  setSessionProfile: (sessionId: string, profileId: string) => void;
   selectSession: (id: string) => void;
   deleteSession: (id: string) => void;
   renameSession: (id: string, title: string) => void;
+  togglePinSession: (id: string) => void;
   clearAllSessions: () => void;
   setSearchQuery: (query: string) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
 
-  sendMessage: (content: string) => Promise<void>;
+  /**
+   * Asks `content` in the active conversation. `resend` re-asks an existing question (Retry) instead
+   * of adding a new one; `replacesMessageId` tells a server-managed backend to discard that message
+   * and everything after it first (Retry / Edit).
+   */
+  sendMessage: (content: string, options?: { resend?: ChatMessage; replacesMessageId?: string }) => Promise<void>;
+  /** Edit & resend: replaces the message and everything after it with the edited question. */
+  editAndResend: (messageId: string, content: string) => Promise<void>;
   stopGeneration: () => void;
   regenerateResponse: (messageId?: string) => Promise<void>;
   exportConversation: (id: string, format: 'json' | 'markdown') => void;
@@ -40,7 +52,7 @@ const createInitialSession = (): ConversationSession => {
     title: 'New Mission Session',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    modelId: settings.aiConfig.activeModelId,
+    profileId: defaultProfile(settings.profiles, 'general').id,
     personaId: persona.id,
     systemPrompt: persona.systemPrompt,
     temperature: persona.temperature,
@@ -68,7 +80,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       title: `${persona.name} Chat`,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      modelId: settings.aiConfig.activeModelId,
+      profileId: defaultProfile(settings.profiles, 'general').id,
       personaId: persona.id,
       systemPrompt: persona.systemPrompt,
       temperature: persona.temperature,
@@ -87,6 +99,12 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
     set({ activeSessionId: id });
   },
 
+  setSessionProfile: (sessionId, profileId) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === sessionId ? { ...s, profileId } : s)),
+    }));
+  },
+
   deleteSession: (id) => {
     set((state) => {
       const remaining = state.sessions.filter((s) => s.id !== id);
@@ -94,9 +112,14 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       if (nextActive === id) {
         nextActive = remaining.length > 0 ? remaining[0].id : null;
       }
+      // Deleting the last conversation leaves a fresh one, which must also become the active one.
+      if (remaining.length === 0) {
+        const fresh = createInitialSession();
+        return { sessions: [fresh], activeSessionId: fresh.id };
+      }
       return {
-        sessions: remaining.length > 0 ? remaining : [createInitialSession()],
-        activeSessionId: nextActive || (remaining.length > 0 ? remaining[0].id : null),
+        sessions: remaining,
+        activeSessionId: nextActive || remaining[0].id,
       };
     });
   },
@@ -104,6 +127,13 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
   renameSession: (id, title) => {
     set((state) => ({
       sessions: state.sessions.map((s) => (s.id === id ? { ...s, title, updatedAt: Date.now() } : s)),
+    }));
+  },
+
+  // Pinning doesn't touch updatedAt, so it doesn't reorder the date groups.
+  togglePinSession: (id) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === id ? { ...s, pinned: !s.pinned } : s)),
     }));
   },
 
@@ -127,7 +157,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
     set({ isSidebarOpen });
   },
 
-  sendMessage: async (content: string) => {
+  sendMessage: async (content: string, options = {}) => {
     const state = get();
     if (!content.trim() || state.isStreaming) return;
 
@@ -143,7 +173,8 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
 
     const settings = useSettingsStore.getState();
 
-    const userMessage: ChatMessage = {
+    // Retry re-asks the existing question rather than adding a duplicate of it.
+    const userMessage: ChatMessage = options.resend ?? {
       id: generateId(),
       role: 'user',
       content: content.trim(),
@@ -151,10 +182,10 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       status: 'complete',
     };
 
-    const isCustomApi = settings.aiConfig.providerType === 'custom-api' || settings.aiConfig.providerType === 'openai-compatible';
-    const effectiveModelId = isCustomApi
-      ? (settings.aiConfig.customModelId || 'gpt-4o-mini')
-      : settings.aiConfig.activeModelId;
+    // CHAT-006: the conversation's profile decides endpoint + model. No silent fallback model.
+    const profile = resolveProfile(settings.profiles, currentSession.profileId);
+    const target = resolveModelTarget(profile, settings.aiConfig);
+    const effectiveModelId = target.mode === 'unconfigured' ? '' : target.modelId;
 
     const assistantMessageId = generateId();
     const assistantPlaceholder: ChatMessage = {
@@ -163,7 +194,8 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       content: '',
       timestamp: Date.now(),
       status: 'streaming',
-      modelId: effectiveModelId,
+      modelId: target.mode === 'live' ? target.modelId : undefined,
+      profileName: profile.name,
     };
 
     const isFirstUserMessage = currentSession.messages.filter((m) => m.role === 'user').length === 0;
@@ -176,7 +208,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       (m, idx) => !(idx === 0 && m.role === 'assistant' && currentSession!.messages.length === 1)
     );
 
-    const updatedMessages = [...baseMessages, userMessage, assistantPlaceholder];
+    const updatedMessages = options.resend ? [...baseMessages, assistantPlaceholder] : [...baseMessages, userMessage, assistantPlaceholder];
 
     set((s) => ({
       sessions: s.sessions.map((sess) =>
@@ -192,15 +224,34 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       isStreaming: true,
     }));
 
-    const provider = providerRegistry.getActiveProvider(settings.aiConfig);
+    if (target.mode === 'unconfigured') {
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === targetSessionId
+            ? {
+                ...sess,
+                messages: sess.messages.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? ({ ...msg, content: `⚠️ **Model not configured**: ${target.problem}`, status: 'error' } as ChatMessage)
+                    : msg
+                ),
+              }
+            : sess
+        ),
+        isStreaming: false,
+      }));
+      return;
+    }
 
-    // Clean history ensuring it begins with user message (required by modern LLM APIs)
-    const rawHistory = updatedMessages.slice(0, -1).map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
-    const firstUserIdx = rawHistory.findIndex((m) => m.role === 'user');
-    const historyForLLM = firstUserIdx >= 0 ? rawHistory.slice(firstUserIdx) : rawHistory;
+    const provider = providerRegistry.getProvider(target, settings.aiConfig);
+
+    // What the model is sent (PROMPTING_CONTEXT_PLAN §3). Server-managed profiles: only the new
+    // question, plus ids, because the gateway keeps the conversation. App-managed (stateless
+    // endpoints): a cleaned history (no failed, empty or superseded turns) within the memory limit.
+    const serverContext = profile.contextMode === 'server';
+    const historyForLLM = serverContext
+      ? [{ role: userMessage.role, content: userMessage.content }]
+      : buildAppContext(updatedMessages.slice(0, -1), settings.aiConfig.historyLimit ?? 30);
 
     const smoothBuffer = new SmoothStreamBuffer((displayedContent, isDone, stats) => {
       set((s) => {
@@ -237,6 +288,9 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
           systemPrompt: currentSession.systemPrompt || settings.aiConfig.systemPrompt,
           temperature: currentSession.temperature ?? settings.aiConfig.temperature,
           maxTokens: settings.aiConfig.maxTokens,
+          conversation: serverContext
+            ? { conversationId: targetSessionId!, messageId: userMessage.id, replacesMessageId: options.replacesMessageId }
+            : undefined,
         },
         (chunk: StreamChunk) => {
           smoothBuffer.append(chunk.content, chunk.done, chunk.stats);
@@ -321,7 +375,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
           return {
             ...s,
             messages: s.messages.map((m) =>
-              m.status === 'streaming' ? { ...m, status: 'complete' } : m
+              m.status === 'streaming' ? { ...m, status: 'complete', stopped: true } : m
             ),
           };
         }),
@@ -331,6 +385,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
     });
   },
 
+  // Retry: drop the answer being replaced and re-ask the same question (no duplicate question).
   regenerateResponse: async (targetMessageId?: string) => {
     const { sessions, activeSessionId, isStreaming, sendMessage } = get();
     if (isStreaming || !activeSessionId) return;
@@ -338,23 +393,34 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
     const currentSession = sessions.find((s) => s.id === activeSessionId);
     if (!currentSession || currentSession.messages.length === 0) return;
 
-    const lastUserMsg = [...currentSession.messages].reverse().find((m) => m.role === 'user');
-    if (!lastUserMsg) return;
+    let msgs = [...currentSession.messages];
+    if (targetMessageId) msgs = msgs.filter((m) => m.id !== targetMessageId);
+    else if (msgs[msgs.length - 1]?.role === 'assistant') msgs.pop();
+
+    const question = msgs[msgs.length - 1];
+    if (!question || question.role !== 'user') return;
 
     set((state) => ({
-      sessions: state.sessions.map((s) => {
-        if (s.id !== activeSessionId) return s;
-        let msgs = [...s.messages];
-        if (targetMessageId) {
-          msgs = msgs.filter((m) => m.id !== targetMessageId);
-        } else if (msgs[msgs.length - 1]?.role === 'assistant') {
-          msgs.pop();
-        }
-        return { ...s, messages: msgs };
-      }),
+      sessions: state.sessions.map((s) => (s.id === activeSessionId ? { ...s, messages: msgs } : s)),
     }));
 
-    await sendMessage(lastUserMsg.content);
+    await sendMessage(question.content, { resend: question, replacesMessageId: question.id });
+  },
+
+  // Edit & resend replaces: the edited question and everything after it are removed first, so the
+  // conversation stays one clean question → answer record.
+  editAndResend: async (messageId, content) => {
+    const { sessions, activeSessionId, isStreaming, sendMessage } = get();
+    if (isStreaming || !activeSessionId || !content.trim()) return;
+    const session = sessions.find((s) => s.id === activeSessionId);
+    const index = session?.messages.findIndex((m) => m.id === messageId) ?? -1;
+    if (!session || index < 0) return;
+
+    set((state) => ({
+      sessions: state.sessions.map((s) => (s.id === activeSessionId ? { ...s, messages: s.messages.slice(0, index) } : s)),
+    }));
+
+    await sendMessage(content, { replacesMessageId: messageId });
   },
 
   exportConversation: (id: string, format: 'json' | 'markdown') => {
@@ -371,7 +437,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       filename += '.json';
       mimeType = 'application/json';
     } else {
-      content = `# ${session.title}\n*Created: ${new Date(session.createdAt).toLocaleString()}*\n*Model: ${session.modelId}*\n\n---\n\n`;
+      content = `# ${session.title}\n*Created: ${new Date(session.createdAt).toLocaleString()}*\n*Model: ${resolveProfile(useSettingsStore.getState().profiles, session.profileId).name}*\n\n---\n\n`;
       session.messages.forEach((m) => {
         const author = m.role === 'user' ? '👤 User' : '🤖 Assistant';
         content += `### ${author} (${new Date(m.timestamp).toLocaleTimeString()})\n\n${m.content}\n\n---\n\n`;

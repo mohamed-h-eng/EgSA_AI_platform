@@ -1,10 +1,13 @@
 import { createStore } from './createStore';
-import type { UserPreferences, AIConfiguration, ThemeMode, FontSizeOption, ChatDensity, BubbleStyle, TextDirection, ArabicFontOption } from '../types';
-import { DEFAULT_PREFERENCES, DEFAULT_AI_CONFIG, DEFAULT_PERSONAS } from '../constants/defaults';
+import type { ModelProfile, UserPreferences, AIConfiguration, ThemeMode, FontSizeOption, ChatDensity, BubbleStyle, TextDirection, ArabicFontOption } from '../types';
+import { DEFAULT_PREFERENCES, DEFAULT_AI_CONFIG, DEFAULT_PERSONAS, DEFAULT_MODEL_PROFILES } from '../constants/defaults';
+import { ensureDefaults, reconcileProfiles, removeProfile, setDefaultProfile } from '../services/ai/modelProfiles';
 
 interface SettingsState {
   preferences: UserPreferences;
   aiConfig: AIConfiguration;
+  /** CHAT-006 model profiles; swap-in point for GET /api/models. */
+  profiles: ModelProfile[];
   isSettingsOpen: boolean;
   activeSettingsTab: 'appearance' | 'model' | 'personas' | 'api';
 
@@ -18,7 +21,10 @@ interface SettingsState {
   setArabicFont: (font: ArabicFontOption) => void;
   setPreferences: (partial: Partial<UserPreferences>) => void;
 
-  setModel: (modelId: string) => void;
+  addProfile: (profile: Omit<ModelProfile, 'id'>) => string;
+  updateProfile: (id: string, patch: Partial<Omit<ModelProfile, 'id'>>) => void;
+  removeProfile: (id: string) => void;
+  setDefaultProfile: (id: string) => void;
   setPersona: (personaId: string) => void;
   setTemperature: (temp: number) => void;
   setMaxTokens: (tokens: number) => void;
@@ -30,9 +36,12 @@ interface SettingsState {
   resetToDefaults: () => void;
 }
 
+// Preferences are applied to <html> (theme, font scale, accent, Arabic font, direction) in one
+// place: the effects in App.tsx. Setters here only update state.
 export const useSettingsStore = createStore<SettingsState>((set) => ({
   preferences: DEFAULT_PREFERENCES,
   aiConfig: DEFAULT_AI_CONFIG,
+  profiles: DEFAULT_MODEL_PROFILES,
   isSettingsOpen: false,
   activeSettingsTab: 'appearance',
 
@@ -40,35 +49,18 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
     set((state) => ({
       preferences: { ...state.preferences, theme },
     }));
-    document.documentElement.setAttribute('data-theme', theme);
   },
 
   setAccentColor: (color) => {
     set((state) => ({
       preferences: { ...state.preferences, customAccentColor: color },
     }));
-    document.documentElement.style.setProperty('--accent-primary', color);
   },
 
   setFontSize: (fontSize) => {
     set((state) => ({
       preferences: { ...state.preferences, fontSize },
     }));
-    const scaleMap: Record<
-      string,
-      { root: string; chat: string; iconScale: string; headerHeight: string; sidebarWidth: string }
-    > = {
-      sm: { root: '14px', chat: '13.5px', iconScale: '0.88', headerHeight: '48px', sidebarWidth: '245px' },
-      md: { root: '16px', chat: '15px', iconScale: '1.0', headerHeight: '52px', sidebarWidth: '260px' },
-      lg: { root: '18px', chat: '17.5px', iconScale: '1.14', headerHeight: '58px', sidebarWidth: '280px' },
-    };
-    const config = scaleMap[fontSize] || scaleMap.md;
-    document.documentElement.style.fontSize = config.root;
-    document.documentElement.style.setProperty('--chat-font-size', config.chat);
-    document.documentElement.style.setProperty('--icon-scale', config.iconScale);
-    document.documentElement.style.setProperty('--header-height', config.headerHeight);
-    document.documentElement.style.setProperty('--sidebar-width', config.sidebarWidth);
-    document.documentElement.setAttribute('data-font-size', fontSize);
   },
 
   setChatDensity: (chatDensity) => {
@@ -93,7 +85,6 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
     set((state) => ({
       preferences: { ...state.preferences, arabicFont },
     }));
-    document.documentElement.setAttribute('data-arabic-font', arabicFont);
   },
 
   setPreferences: (partial) => {
@@ -102,10 +93,22 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
     }));
   },
 
-  setModel: (activeModelId) => {
-    set((state) => ({
-      aiConfig: { ...state.aiConfig, activeModelId },
-    }));
+  addProfile: (profile) => {
+    const id = `profile-${Math.random().toString(36).slice(2, 8)}${Date.now().toString(36)}`;
+    set((state) => ({ profiles: ensureDefaults([...state.profiles, { ...profile, id }]) }));
+    return id;
+  },
+
+  updateProfile: (id, patch) => {
+    set((state) => ({ profiles: ensureDefaults(state.profiles.map((p) => (p.id === id ? { ...p, ...patch } : p))) }));
+  },
+
+  removeProfile: (id) => {
+    set((state) => ({ profiles: removeProfile(state.profiles, id) }));
+  },
+
+  setDefaultProfile: (id) => {
+    set((state) => ({ profiles: setDefaultProfile(state.profiles, id) }));
   },
 
   setPersona: (personaId) => {
@@ -115,7 +118,6 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
         aiConfig: {
           ...state.aiConfig,
           activePersonaId: personaId,
-          activeModelId: persona.defaultModelId,
           systemPrompt: persona.systemPrompt,
           temperature: persona.temperature,
         },
@@ -156,13 +158,54 @@ export const useSettingsStore = createStore<SettingsState>((set) => ({
   },
 
   resetToDefaults: () => {
+    // Profiles are admin configuration, not a personal preference, so they are kept.
     set({
       preferences: DEFAULT_PREFERENCES,
       aiConfig: DEFAULT_AI_CONFIG,
     });
-    document.documentElement.setAttribute('data-theme', DEFAULT_PREFERENCES.theme);
-    document.documentElement.setAttribute('data-arabic-font', DEFAULT_PREFERENCES.arabicFont);
-    document.documentElement.style.removeProperty('--accent-primary');
-    document.documentElement.style.removeProperty('--chat-font-size');
   },
-}), 'egsa_ai_settings');
+}), 'egsa_ai_settings', {
+  // The API key never goes to localStorage (NFR-SEC): it lives in sessionStorage, so it survives
+  // reloads in this tab and is gone when the browser session ends. The real fix is the gateway
+  // holding credentials server-side (INT-004); this just stops the key persisting on shared PCs.
+  partialize: (state) => ({ ...state, aiConfig: { ...state.aiConfig, apiKey: '' } }),
+  // One-time move of a key saved by older builds from localStorage into sessionStorage.
+  rehydrate: (loaded) => {
+    const apiKey = readSessionApiKey() || loaded.aiConfig.apiKey || '';
+    return {
+      ...loaded,
+      aiConfig: { ...loaded.aiConfig, apiKey },
+      profiles: reconcileProfiles(loaded.profiles, DEFAULT_MODEL_PROFILES),
+    };
+  },
+});
+
+const SESSION_API_KEY = 'egsa_ai_api_key';
+
+function readSessionApiKey(): string {
+  try {
+    return sessionStorage.getItem(SESSION_API_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+let lastSessionKey = useSettingsStore.getState().aiConfig.apiKey || '';
+const writeSessionApiKey = (apiKey: string) => {
+  try {
+    if (apiKey) sessionStorage.setItem(SESSION_API_KEY, apiKey);
+    else sessionStorage.removeItem(SESSION_API_KEY);
+  } catch {
+    // Storage blocked (private mode): the key just lasts until reload.
+  }
+};
+writeSessionApiKey(lastSessionKey);
+// Strip a legacy key out of localStorage right away instead of waiting for the next settings change.
+useSettingsStore.setState({});
+useSettingsStore.subscribe(() => {
+  const apiKey = useSettingsStore.getState().aiConfig.apiKey || '';
+  if (apiKey !== lastSessionKey) {
+    lastSessionKey = apiKey;
+    writeSessionApiKey(apiKey);
+  }
+});

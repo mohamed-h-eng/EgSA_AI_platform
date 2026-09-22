@@ -9,10 +9,11 @@ import {
   SparklesIcon,
   SlidersIcon,
   LogOutIcon,
+  KeyboardIcon,
 } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { DEFAULT_MODELS, DEFAULT_PERSONAS } from '../../constants/defaults';
+import { useUiStore } from '../../stores/uiStore';
 
 export const Header: React.FC = () => {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -26,17 +27,10 @@ export const Header: React.FC = () => {
 
   const preferences = useSettingsStore((s) => s.preferences);
   const setTheme = useSettingsStore((s) => s.setTheme);
-  const aiConfig = useSettingsStore((s) => s.aiConfig);
   const openSettings = useSettingsStore((s) => s.openSettings);
+  const openShortcuts = useUiStore((s) => s.openShortcuts);
 
   const currentSession = sessions.find((s) => s.id === activeSessionId);
-  const activeModel = DEFAULT_MODELS.find((m) => m.id === aiConfig.activeModelId) || DEFAULT_MODELS[0];
-  const activePersona = DEFAULT_PERSONAS.find((p) => p.id === aiConfig.activePersonaId) || DEFAULT_PERSONAS[0];
-
-  const isCustomApi = aiConfig.providerType === 'custom-api' || aiConfig.providerType === 'openai-compatible';
-  const displayedModelName = isCustomApi
-    ? (aiConfig.customModelId || 'Live Endpoint')
-    : activeModel.name;
 
   const isDarkMode =
     preferences.theme === 'dark' ||
@@ -123,63 +117,6 @@ export const Header: React.FC = () => {
             {currentSession ? currentSession.title : 'New Conversation'}
           </h1>
         </div>
-      </div>
-
-      {/* Center Section: Model & Persona Selector Trigger */}
-      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, justifyContent: 'center' }}>
-        <button
-          onClick={() => openSettings(isCustomApi ? 'api' : 'model')}
-          className="apple-button"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            padding: '0.28rem clamp(0.4rem, 1.5vw, 0.65rem)',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--text-secondary)',
-            fontWeight: 500,
-            backgroundColor: 'var(--bg-tertiary)',
-            border: '1px solid transparent',
-            maxWidth: 'clamp(120px, 42vw, 280px)',
-            overflow: 'hidden',
-          }}
-          title={isCustomApi ? "Configured with live custom API endpoint" : "Switch model or persona"}
-        >
-          {isCustomApi && (
-            <span
-              style={{
-                fontSize: '0.6rem',
-                padding: '0.08rem 0.35rem',
-                borderRadius: 'var(--radius-full)',
-                backgroundColor: 'var(--accent-surface)',
-                color: 'var(--accent-text)',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                flexShrink: 0,
-              }}
-            >
-              LIVE
-            </span>
-          )}
-          <span className="hide-on-mobile" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-            {activePersona.name}
-          </span>
-          <span className="hide-on-mobile" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-            •
-          </span>
-          <span
-            style={{
-              color: 'var(--text-primary)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {displayedModelName}
-          </span>
-          <ChevronDownIcon size={12} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-        </button>
       </div>
 
       {/* Right Section: Account Trigger & Dropdown Menu */}
@@ -371,6 +308,16 @@ export const Header: React.FC = () => {
               onClick={() => {
                 setIsAccountMenuOpen(false);
                 openSettings('api');
+              }}
+            />
+
+            <DropdownMenuItem
+              icon={<KeyboardIcon size={14} />}
+              label="Keyboard shortcuts"
+              secondaryAction={<kbd className="kbd">?</kbd>}
+              onClick={() => {
+                setIsAccountMenuOpen(false);
+                openShortcuts();
               }}
             />
 
