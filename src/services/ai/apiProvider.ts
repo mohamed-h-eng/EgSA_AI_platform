@@ -1,5 +1,6 @@
 import type { LLMProvider } from './base';
 import type { LLMRequestParams, StreamChunk } from '../../types';
+import { createThinkSplitter } from './reasoning';
 
 export interface APIProviderOptions {
   endpointUrl: string;
@@ -453,6 +454,7 @@ export class CustomAPIProvider implements LLMProvider {
         throw new Error('ReadableStream not supported in response body');
       }
 
+      const splitter = createThinkSplitter();
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
@@ -471,20 +473,23 @@ export class CustomAPIProvider implements LLMProvider {
 
           if (trimmed === 'data: [DONE]') {
             const latencyMs = Date.now() - startTime;
-            onChunk({ content: '', done: true, stats: { completionTokens: Math.ceil(accumulated.length / 4), latencyMs } });
+            const rest = splitter.flush();
+            accumulated += rest.content;
+            onChunk({ content: rest.content, reasoning: rest.reasoning || undefined, done: true, stats: { completionTokens: Math.ceil(accumulated.length / 4), latencyMs } });
             return;
           }
 
           if (trimmed.startsWith('data: ')) {
             try {
               const parsed = JSON.parse(trimmed.slice(6));
-              const textChunk =
-                parsed.choices?.[0]?.delta?.content ||
-                parsed.choices?.[0]?.text ||
-                '';
-              if (textChunk) {
-                accumulated += textChunk;
-                onChunk({ content: textChunk, done: false });
+              const delta = parsed.choices?.[0]?.delta;
+              const rawChunk = delta?.content || parsed.choices?.[0]?.text || '';
+              // Thinking arrives either in its own field or inline in <think> tags (§6).
+              const split = splitter.push(rawChunk);
+              const reasoningChunk: string = (delta?.reasoning || delta?.reasoning_content || '') + split.reasoning;
+              if (split.content || reasoningChunk) {
+                accumulated += split.content;
+                onChunk({ content: split.content, reasoning: reasoningChunk || undefined, done: false });
               }
             } catch {
               // Ignore JSON parse errors on partial chunk boundaries

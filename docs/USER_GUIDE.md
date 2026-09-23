@@ -78,7 +78,14 @@ Just above the message box, next to the astronaut, is the conversation's **model
 - **General:** everyday questions, writing, engineering explanations.
 - **Coding:** code generation, review and debugging.
 
-New conversations use the **default** profile, which you set with *Make default* in that list. Existing conversations keep the profile they started with. If the status shows **No model set**, an administrator still needs to choose a model for that profile (see section 7). If it shows **demo**, no model server is connected yet.
+Open a profile's *Edit* panel and choose **Use in the open conversation** to switch the conversation you have open (it applies from the next answer). New conversations use the **default** profile, which you set with *Make default* in the same panel. If the status shows **No model set**, an administrator still needs to choose a model for that profile (see section 7). If it shows **demo**, no model server is connected yet.
+
+### How much the model remembers
+Each answer is sent with the most recent part of the conversation, as much as the model's context size allows (an administrator sets *Context size* per profile). When a conversation grows past that, a line marks where the older messages stop being sent. Failed, stopped and re-asked turns are left out, so the model doesn't answer old questions again. Start a new conversation for a new topic.
+
+**Answer length.** Settings → Intelligence → *Answer length*: **Concise**, **Balanced** (default) or **Detailed**. It changes both the instruction the model gets and how long an answer may be.
+
+**Thinking models.** Some models show their thinking before answering. It appears as a collapsed **"Thought for N s"** line above the answer. Open it if you want to read it. It is never copied with the answer and never sent back to the model.
 
 ### Personas
 Settings → Intelligence → **Specialist persona** sets the assistant's style and focus: *EgSA Space Specialist*, *Senior Software Architect*, *Cosmic Assistant* and *Data & ML Scientist*. New conversations start with the selected persona. The chat box shows who you're talking to, for example "Ask EgSA Space Specialist…".

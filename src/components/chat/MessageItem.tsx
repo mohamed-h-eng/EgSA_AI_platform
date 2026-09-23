@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import type { ChatMessage, TextDirection } from '../../types';
+import type { ContextReport, ChatMessage, TextDirection } from '../../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { CopyIcon, CheckIcon, RefreshCwIcon, PencilIcon, ArrowUpIcon, AlignLeftIcon, AlignRightIcon } from '../ui/Icons';
 import { useChatStore } from '../../stores/chatStore';
+import { useRoleStore } from '../../stores/roleStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { AnswerFeedback } from '../feedback/AnswerFeedback';
 import { EDIT_LAST_MESSAGE_EVENT } from '../../utils/keyboard';
@@ -18,6 +19,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
   const [copied, setCopied] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const isAdmin = useRoleStore((s) => s.isAdmin);
   const [editedContent, setEditedContent] = useState(message.content);
 
   const globalDirection = useSettingsStore((s) => s.preferences?.textDirection);
@@ -292,6 +294,15 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
       {/* Editorial Content Container */}
       <div style={{ width: '100%', padding: '0.25rem 0' }} dir={effectiveDir}>
         <span className="visually-hidden">Assistant said: </span>
+        {/* Reasoning models: thinking stays collapsed above the answer (PROMPTING_CONTEXT_PLAN §6). */}
+        {message.reasoning?.trim() && (
+          <details className="reasoning-disclosure">
+            <summary>
+              {message.status === 'streaming' && !message.content ? 'Thinking…' : `Thought for ${Math.max(1, Math.round((message.reasoningMs ?? 0) / 1000))} s`}
+            </summary>
+            <div className="reasoning-body" dir={effectiveDir}>{message.reasoning.trim()}</div>
+          </details>
+        )}
         <MarkdownRenderer content={message.content} isStreaming={message.status === 'streaming'} direction={effectiveDir} />
 
         {message.error && (
@@ -373,6 +384,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
             </button>
           )}
 
+            {isAdmin && message.contextReport && <ContextReportPanel report={message.contextReport} />}
+
           {message.stats?.latencyMs && (
             <span
               style={{
@@ -390,6 +403,42 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, isLatestAssis
     </div>
   );
 };
+
+// Admin debugging (PROMPTING_CONTEXT_PLAN §8): what was actually sent for this answer — how many
+// turns, the token estimate against the budget, what was left out and why, and the system prompt.
+const ContextReportPanel: React.FC<{ report: ContextReport }> = ({ report }) => (
+  <details className="context-report">
+    <summary title="Admin view: what this answer was sent">What the model saw</summary>
+    <div className="context-report-body">
+      <dl>
+        <dt>Context</dt>
+        <dd>
+          {report.mode === 'server'
+            ? 'The gateway keeps this conversation; only the new question was sent.'
+            : `${report.messagesSent} message${report.messagesSent === 1 ? '' : 's'} sent`}
+        </dd>
+        <dt>Tokens</dt>
+        <dd>
+          ~{report.usedTokens.toLocaleString()} of {report.budgetTokens.toLocaleString()} available
+          {' · '}context {report.contextTokens.toLocaleString()}, reply up to {report.maxTokens.toLocaleString()}
+        </dd>
+        <dt>Left out</dt>
+        <dd>
+          {report.droppedAsNoise + report.droppedForBudget === 0
+            ? 'Nothing'
+            : [
+                report.droppedAsNoise ? `${report.droppedAsNoise} failed, empty or superseded` : '',
+                report.droppedForBudget ? `${report.droppedForBudget} over budget` : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+        </dd>
+      </dl>
+      <span className="context-report-label">System prompt</span>
+      <pre>{report.systemPrompt}</pre>
+    </div>
+  </details>
+);
 
 // What a chat rating records: the question this answer replied to, and which profile/model wrote it.
 function chatFeedbackMeta(message: ChatMessage) {

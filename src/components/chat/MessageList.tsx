@@ -6,7 +6,8 @@ import { DEFAULT_PERSONAS } from '../../constants/defaults';
 import { ArrowDownIcon } from '../ui/Icons';
 import { WelcomeStarfield } from './WelcomeStarfield';
 import { WelcomeLogo } from './WelcomeLogo';
-import { historyWindowStart } from '../../utils/history';
+import { DEFAULT_CONTEXT_TOKENS, historyBudget, historyWindowStart } from '../../services/ai/context';
+import { answerLengthOf, buildSystemPrompt, resolveInstructions } from '../../services/ai/prompt';
 import { resolveProfile } from '../../services/ai/modelProfiles';
 import { handleListArrowKeys } from '../../utils/keyboard';
 
@@ -183,9 +184,17 @@ export const MessageList: React.FC = () => {
 
   // Conversation memory (PRODUCTIVITY_UX_PLAN §6): where the model's view of this chat begins.
   // Not shown for server-managed profiles: the app sends no history there, the gateway keeps it.
-  const historyLimit = aiConfig.historyLimit ?? 30;
-  const serverKeepsContext = resolveProfile(profiles, currentSession?.profileId).contextMode === 'server';
-  const memoryStart = serverKeepsContext ? 0 : historyWindowStart(messages, historyLimit);
+  const activeProfile = resolveProfile(profiles, currentSession?.profileId);
+  const serverKeepsContext = activeProfile.contextMode === 'server';
+  const contextBudget = historyBudget({
+    contextTokens: activeProfile.contextTokens,
+    maxTokens: answerLengthOf(aiConfig.answerLength).maxTokens,
+    systemPrompt: buildSystemPrompt({
+      instructions: resolveInstructions(DEFAULT_PERSONAS, currentSession?.personaId, currentSession?.systemPrompt),
+      length: aiConfig.answerLength,
+    }),
+  });
+  const memoryStart = serverKeepsContext ? 0 : historyWindowStart(messages, contextBudget);
   const lastUserIndex = messages.map((m) => m.role).lastIndexOf('user');
 
   const isEmptySession =
@@ -350,7 +359,7 @@ export const MessageList: React.FC = () => {
 
                 return (
                   <React.Fragment key={message.id}>
-                    {index === memoryStart && memoryStart > 0 && <MemoryDivider limit={historyLimit} />}
+                    {index === memoryStart && memoryStart > 0 && <MemoryDivider contextTokens={activeProfile.contextTokens ?? DEFAULT_CONTEXT_TOKENS} />}
                     <MessageItem message={message} isLatestAssistant={isLatestAssistant} isLastUser={index === lastUserIndex} />
                   </React.Fragment>
                 );
@@ -421,8 +430,8 @@ export const MessageList: React.FC = () => {
 };
 
 // Marks where older messages stop being sent to the model, so long chats don't fail silently.
-const MemoryDivider: React.FC<{ limit: number }> = ({ limit }) => (
+const MemoryDivider: React.FC<{ contextTokens: number }> = ({ contextTokens }) => (
   <div className="memory-divider" role="note">
-    <span>Earlier messages aren’t sent to the model. Using the last {limit} messages.</span>
+    <span>Earlier messages aren’t sent to the model (context budget: {contextTokens.toLocaleString()} tokens).</span>
   </div>
 );

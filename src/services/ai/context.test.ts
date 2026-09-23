@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAppContext, cleanHistory } from './context';
+import { buildBudgetedContext, cleanHistory, estimateTokens, historyBudget, historyWindowStart } from './context';
 import type { ChatMessage } from '../../types';
 
 let n = 0;
@@ -38,17 +38,58 @@ describe('cleanHistory (app-managed context)', () => {
   });
 
   it('always keeps the question being asked now', () => {
-    const h = buildAppContext([user('q1'), ai('a1'), user('q2'), ai('x', { status: 'error' }), user('now')], 30);
+    const h = buildBudgetedContext([user('q1'), ai('a1'), user('q2'), ai('x', { status: 'error' }), user('now')], 4000).sent;
     expect(h[h.length - 1]).toEqual({ role: 'user', content: 'now' });
   });
+});
 
-  it('applies the message limit after cleaning', () => {
+describe('token budget (§5)', () => {
+  it('estimates Arabic text as more tokens per character than Latin', () => {
+    const latin = 'a'.repeat(100);
+    const arabic = 'ب'.repeat(100);
+    expect(estimateTokens(latin)).toBe(25);
+    expect(estimateTokens(arabic)).toBe(40);
+    expect(estimateTokens('')).toBe(0);
+  });
+
+  it('reserves room for the answer, the system prompt and a safety margin', () => {
+    const budget = historyBudget({ contextTokens: 8192, maxTokens: 1536, systemPrompt: 'x'.repeat(400) });
+    expect(budget).toBe(Math.floor(8192 * 0.9) - 1536 - 100 - 4);
+    // Never negative, however small the context is.
+    expect(historyBudget({ contextTokens: 1024, maxTokens: 3072, systemPrompt: '' })).toBe(0);
+  });
+
+  it('keeps the newest turns that fit, starting on a question', () => {
     const msgs: ChatMessage[] = [];
-    for (let i = 0; i < 20; i++) msgs.push(user(`q${i}`), ai(`a${i}`));
+    for (let i = 0; i < 20; i++) msgs.push(user(`q${i} ${'x'.repeat(200)}`), ai(`a${i} ${'y'.repeat(200)}`));
     msgs.push(user('now'));
-    const h = buildAppContext(msgs, 10);
-    expect(h.length).toBeLessThanOrEqual(10);
-    expect(h[0].role).toBe('user');
-    expect(h[h.length - 1].content).toBe('now');
+    const report = buildBudgetedContext(msgs, 400);
+    expect(report.sent[0].role).toBe('user');
+    expect(report.sent[report.sent.length - 1].content).toBe('now');
+    expect(report.usedTokens).toBeLessThanOrEqual(400);
+    expect(report.droppedForBudget).toBeGreaterThan(0);
+  });
+
+  it('keeps the latest question even when it alone is over budget', () => {
+    const report = buildBudgetedContext([user('old'), ai('answer'), user('z'.repeat(8000))], 100);
+    expect(report.sent).toHaveLength(1);
+    expect(report.sent[0].content).toHaveLength(8000);
+  });
+
+  it('counts turns removed as noise separately from those dropped for budget', () => {
+    const report = buildBudgetedContext([user('q1'), ai('boom', { status: 'error' }), user('now')], 4000);
+    expect(report.droppedAsNoise).toBe(2);
+    expect(report.droppedForBudget).toBe(0);
+  });
+
+  it('marks where the model context starts for the divider', () => {
+    const messages = Array.from({ length: 20 }, (_, i) =>
+      i % 2 === 0 ? user(`q${i} ${'x'.repeat(400)}`) : ai(`a${i} ${'y'.repeat(400)}`)
+    );
+    const start = historyWindowStart(messages, 300);
+    expect(start).toBeGreaterThan(0);
+    expect(messages[start].role).toBe('user');
+    // Everything fits when the budget is large.
+    expect(historyWindowStart(messages, 100000)).toBe(0);
   });
 });

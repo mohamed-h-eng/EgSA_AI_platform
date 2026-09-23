@@ -1,6 +1,6 @@
 # Plan: Prompting and context management for chat
 
-> Status: **PARTLY APPLIED 2026-09-22.** §3 and §3a are done. §4–§8 still wait on the §9 decisions.
+> Status: **APPLIED.** §3 and §3a on 2026-09-22; §4, §5, §6 and §8 on 2026-09-23, all with the recommended answers to Q2–Q5. §7 (Internet endpoint notice) is the only part left.
 > Date: 2026-09-22
 > Trigger: with OpenRouter, answers were long and re-answered every topic since the start of the conversation.
 > Related: CHAT-002/003 (local, offline), CHAT-007/008 (conversation context), NFR-SEC (Section 9), INT-004 (gateway), [`MODEL_PROFILES_PLAN.md`](MODEL_PROFILES_PLAN.md), [`PRODUCTIVITY_UX_PLAN.md`](PRODUCTIVITY_UX_PLAN.md) §6
@@ -128,5 +128,18 @@ You are the EgSA AI assistant on an internal engineering network.
   - Tested in `chatStore.test.ts`.
 - `apiProvider`: sends `conversation_id` / `message_id` / `replaces_message_id` and `X-Conversation-Id` only for server-managed profiles.
 - Settings → Models → profile editor: **Conversation context** (This app sends it | Server keeps it), with an explanation of each. The conversation-memory divider is hidden for server-managed profiles.
-- **Still open (Q2–Q5):** platform prompt, token budget per profile, answer length, reasoning display, and the "What the model saw" panel.
+## 11. Applied 2026-09-23 (Q2–Q5, all as recommended)
+- **§4 layered system prompt** — `services/ai/prompt.ts`: platform rules → persona → answer-length line.
+  - The persona is resolved **at send time**, so editing it reaches conversations that already exist (D8). A conversation only stores instructions of its own when they actually differ from the persona's.
+  - Long pasted material (≥1,500 characters) is wrapped in `<user_content>` when sent; the screen is unchanged.
+- **§5 token budget (Q2)** — `ModelProfile.contextTokens` (default 8192), edited per profile in Settings → Intelligence, with the Ollama `OLLAMA_CONTEXT_LENGTH` / `num_ctx` hint.
+  - Budget = context − reply − system prompt − 10% margin. History is filled newest-first; the latest question is never dropped.
+  - Token estimate: ~4 characters per token, ~2.5 for Arabic.
+  - This **replaces** the "last 30 messages" setting. `utils/history.ts` is gone, and the divider now reads "Earlier messages aren't sent to the model (context budget: N tokens)".
+- **§5 answer length (Q3)** — Settings → Intelligence → **Concise / Balanced / Detailed** (default Balanced), setting both the prompt line and `max_tokens` (768 / 1536 / 3072). It replaces the old Max Tokens slider.
+- **§6 reasoning (Q4)** — `services/ai/reasoning.ts` splits inline `<think>` blocks (across chunk boundaries), and `apiProvider` also reads `delta.reasoning` / `delta.reasoning_content`. It's stored as `message.reasoning` and shown as a collapsed **"Thought for N s"** above the answer. It is never copied and never sent back as history.
+- **§8 "What the model saw" (Q5)** — each answer stores a `contextReport`; in Admin View the answer's action row has a collapsed **What the model saw** panel: turns sent, tokens used against the budget, what was left out (noise vs budget) and the assembled system prompt.
+- **Tests:** `prompt.test.ts` (layering, live persona, spotlighting), `reasoning.test.ts` (split tags, unclosed blocks), `context.test.ts` (Arabic estimate, budget reserve, newest-first fit, the latest question always kept, divider start).
+- **Checked in the browser:** the reasoning disclosure, the admin panel and the budget divider all render; no live model was called.
+- **Still open:** §7 Internet-endpoint notice (data-protection signal for OpenRouter).
 

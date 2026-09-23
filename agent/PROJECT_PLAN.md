@@ -88,10 +88,10 @@ Legend: ✅ done · 🟡 UI complete but backed by client-side mock/local state,
 ### Core chat (Section 6.1) — mostly done, small gaps
 | ID | Requirement | Status |
 |---|---|---|
-| CHAT-001–004, 007, 008 | Chat UI, session context, new-session reset, English support | ✅ Done |
+| CHAT-001–004, 007, 008 | Chat UI, session context, new-session reset, English support | ✅ Done. Context handling completed 2026-09-23 (`PROMPTING_CONTEXT_PLAN.md` §4–§6, §8): layered system prompt with the persona resolved live, a token budget per model profile, Concise/Balanced/Detailed answer length, reasoning kept out of the answer and the history, and an admin "What the model saw" panel |
 | CHAT-005 | Arabic prompts/responses | ✅ UI supports RTL/Arabic already — verify model responses render correctly |
 | CHAT-006 | Admin can configure ≥1 general + 1 coding model | 🟡 UI done: model profiles (general/coding) in Settings → Models, editable in Admin View, at least one per role enforced; new conversations use the default profile; the model status above the Chat message box shows it and opens Settings → Intelligence (`modelProfiles.ts`, `AnswerStatusDock.tsx`; the header picker was removed on 2026-09-22). Plan: `MODEL_PROFILES_PLAN.md`. Seed model names are empty until the pilot models are chosen. Real source: `GET /api/models` |
-| CHAT-009 | Display active model/profile for a conversation | ✅ The model status above the Chat message box shows the conversation's profile and model, and the model answering while it streams (`AnswerStatusDock.tsx`). Per-answer model captions were removed on 2026-09-22 (only the response time is shown); `message.modelId` / `profileName` are still stored and exported |
+| CHAT-009 | Display active model/profile for a conversation | ✅ The model status above the Chat message box shows the conversation's profile and model, and the model answering while it streams (`AnswerStatusDock.tsx`). Per-answer model captions were removed on 2026-09-22 (only the response time is shown); `message.modelId` / `profileName` are still stored and exported. The open conversation's profile is switched in Settings → Intelligence (*Use in the open conversation*, `ModelProfilesSection.tsx`) |
 | CHAT-010 | Controlled internal API for platform clients | ❌ N/A to frontend directly, but frontend must migrate to it (see architecture note above) |
 
 ### Data/document metadata (Section 12.2) — feeds the upload UI

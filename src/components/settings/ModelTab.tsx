@@ -2,6 +2,8 @@ import React from 'react';
 import { CheckIcon } from '../ui/Icons';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { DEFAULT_PERSONAS } from '../../constants/defaults';
+import { ANSWER_LENGTHS, DEFAULT_ANSWER_LENGTH, answerLengthOf } from '../../services/ai/prompt';
+import type { AnswerLength } from '../../types';
 import { GroupedSection, SettingsRow } from './SettingsControls';
 import { ModelProfilesSection } from './ModelProfilesSection';
 
@@ -9,7 +11,6 @@ export const ModelTab: React.FC = () => {
   const aiConfig = useSettingsStore((s) => s.aiConfig);
   const setPersona = useSettingsStore((s) => s.setPersona);
   const setTemperature = useSettingsStore((s) => s.setTemperature);
-  const setMaxTokens = useSettingsStore((s) => s.setMaxTokens);
   const setSystemPrompt = useSettingsStore((s) => s.setSystemPrompt);
   const setAIConfig = useSettingsStore((s) => s.setAIConfig);
 
@@ -70,32 +71,32 @@ export const ModelTab: React.FC = () => {
             />
           </SettingsRow>
 
-          <SettingsRow label="Max Tokens" subtitle={`Completion token limit: ${aiConfig.maxTokens}`}>
-            <input
-              type="range"
-              min="256"
-              max="8192"
-              step="256"
-              value={aiConfig.maxTokens}
-              onChange={(e) => setMaxTokens(parseInt(e.target.value, 10))}
-              style={{ width: '120px', accentColor: 'var(--accent-primary)' }}
-            />
+          {/* Answer length sets both the prompt line and the reply budget (PROMPTING_CONTEXT_PLAN §5). */}
+          <SettingsRow
+            label="Answer length"
+            subtitle={`${answerLengthOf(aiConfig.answerLength).line} Reply budget: ${answerLengthOf(aiConfig.answerLength).maxTokens} tokens.`}
+          >
+            <div className="segmented" role="radiogroup" aria-label="Answer length">
+              {(Object.keys(ANSWER_LENGTHS) as AnswerLength[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={(aiConfig.answerLength ?? DEFAULT_ANSWER_LENGTH) === key}
+                  className="segmented-option"
+                  onClick={() => setAIConfig({ answerLength: key })}
+                >
+                  {ANSWER_LENGTHS[key].label}
+                </button>
+              ))}
+            </div>
           </SettingsRow>
 
           <SettingsRow
             label="Conversation memory"
-            subtitle={`Recent messages sent to the model: ${aiConfig.historyLimit ?? 30}. Older ones are left out so long chats keep working.`}
+            subtitle="Older turns are left out when the conversation no longer fits the model's context size, which is set per profile above."
           >
-            <input
-              type="range"
-              min="10"
-              max="100"
-              step="5"
-              value={aiConfig.historyLimit ?? 30}
-              onChange={(e) => setAIConfig({ historyLimit: parseInt(e.target.value, 10) })}
-              aria-label="Conversation memory, in messages"
-              style={{ width: '120px', accentColor: 'var(--accent-primary)' }}
-            />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Automatic</span>
           </SettingsRow>
         </GroupedSection>
 

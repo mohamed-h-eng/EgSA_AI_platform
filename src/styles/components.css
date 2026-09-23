@@ -673,6 +673,80 @@
 .hljs-attr { color: var(--syntax-key); }
 .hljs-subst { color: var(--code-text); }
 
+/* ---------- Reasoning disclosure (chat/MessageItem.tsx, PROMPTING_CONTEXT_PLAN §6) ---------- */
+/* A reasoning model's thinking: collapsed by default, quiet, and never part of the answer text. */
+.reasoning-disclosure { margin-bottom: var(--space-3); }
+.reasoning-disclosure > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  width: fit-content;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  list-style: none;
+}
+.reasoning-disclosure > summary::-webkit-details-marker { display: none; }
+.reasoning-disclosure > summary::before { content: '▸'; font-size: 0.7em; transition: transform var(--transition-fast); }
+.reasoning-disclosure[open] > summary::before { transform: rotate(90deg); }
+.reasoning-disclosure > summary:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.reasoning-disclosure > summary:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+.reasoning-body {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border-inline-start: 2px solid var(--hairline);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+/* ---------- "What the model saw" (chat/MessageItem.tsx, PROMPTING_CONTEXT_PLAN §8) ---------- */
+/* Admin-only debugging panel in an answer's action row: collapsed, quiet, never in a user's way. */
+.context-report { display: inline-block; }
+.context-report > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.2rem 0.45rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.context-report > summary::-webkit-details-marker { display: none; }
+.context-report > summary:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.context-report > summary:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
+.context-report-body {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  max-width: min(46rem, 100%);
+}
+.context-report-body dl { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-3); margin: 0 0 var(--space-3); }
+.context-report-body dt { color: var(--text-muted); }
+.context-report-body dd { margin: 0; }
+.context-report-label { display: block; margin-bottom: var(--space-1); color: var(--text-muted); }
+.context-report-body pre {
+  margin: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  max-height: 16rem;
+  overflow: auto;
+}
+
 /* ---------- Astronaut status companion (ui/Astronaut.tsx, chat/AnswerStatusDock.tsx) ---------- */
 /* Docked just above the message box; the model's status is written beside the astronaut.
    No border or background (on request). */

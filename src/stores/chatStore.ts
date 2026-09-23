@@ -1,11 +1,12 @@
 import { createStore } from './createStore';
-import type { ChatMessage, ConversationSession, StreamChunk } from '../types';
+import type { ChatMessage, ContextReport, ConversationSession, StreamChunk } from '../types';
 import { providerRegistry } from '../services/ai/providerRegistry';
 import { SmoothStreamBuffer } from '../services/ai/streamBuffer';
 import { useSettingsStore } from './settingsStore';
 import { DEFAULT_PERSONAS } from '../constants/defaults';
 import { defaultProfile, resolveProfile, resolveModelTarget } from '../services/ai/modelProfiles';
-import { buildAppContext } from '../services/ai/context';
+import { DEFAULT_CONTEXT_TOKENS, buildBudgetedContext, historyBudget } from '../services/ai/context';
+import { answerLengthOf, buildSystemPrompt, resolveInstructions, spotlightUserContent } from '../services/ai/prompt';
 
 interface ChatState {
   sessions: ConversationSession[];
@@ -43,6 +44,10 @@ interface ChatState {
 
 const generateId = () => Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 
+/** Settings → System Instructions counts as an override only when it differs from the persona. */
+const customInstructions = (configured: string | undefined, personaPrompt: string) =>
+  configured?.trim() && configured.trim() !== personaPrompt.trim() ? configured.trim() : undefined;
+
 const createInitialSession = (): ConversationSession => {
   const settings = useSettingsStore.getState();
   const persona = DEFAULT_PERSONAS.find((p) => p.id === settings.aiConfig.activePersonaId) || DEFAULT_PERSONAS[0];
@@ -54,7 +59,7 @@ const createInitialSession = (): ConversationSession => {
     updatedAt: Date.now(),
     profileId: defaultProfile(settings.profiles, 'general').id,
     personaId: persona.id,
-    systemPrompt: persona.systemPrompt,
+    systemPrompt: customInstructions(settings.aiConfig.systemPrompt, persona.systemPrompt),
     temperature: persona.temperature,
     messages: [],
   };
@@ -82,7 +87,8 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       updatedAt: Date.now(),
       profileId: defaultProfile(settings.profiles, 'general').id,
       personaId: persona.id,
-      systemPrompt: persona.systemPrompt,
+      // Only a real custom override is copied; the persona itself is resolved at send time (D8).
+      systemPrompt: customInstructions(settings.aiConfig.systemPrompt, persona.systemPrompt),
       temperature: persona.temperature,
       messages: [],
     };
@@ -198,6 +204,7 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
       profileName: profile.name,
     };
 
+
     const isFirstUserMessage = currentSession.messages.filter((m) => m.role === 'user').length === 0;
     const nextTitle = isFirstUserMessage
       ? content.trim().slice(0, 32) + (content.trim().length > 32 ? '...' : '')
@@ -249,9 +256,43 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
     // question, plus ids, because the gateway keeps the conversation. App-managed (stateless
     // endpoints): a cleaned history (no failed, empty or superseded turns) within the memory limit.
     const serverContext = profile.contextMode === 'server';
-    const historyForLLM = serverContext
-      ? [{ role: userMessage.role, content: userMessage.content }]
-      : buildAppContext(updatedMessages.slice(0, -1), settings.aiConfig.historyLimit ?? 30);
+    // Platform rules + persona (resolved now, not at creation time) + answer length (§4).
+    const answerLength = answerLengthOf(settings.aiConfig.answerLength);
+    const systemPrompt = buildSystemPrompt({
+      instructions: resolveInstructions(DEFAULT_PERSONAS, currentSession.personaId, currentSession.systemPrompt),
+      length: settings.aiConfig.answerLength,
+    });
+    // The history is filled newest-first until the profile's real context size is spent (§5).
+    const budget = historyBudget({ contextTokens: profile.contextTokens, maxTokens: answerLength.maxTokens, systemPrompt });
+    const context = serverContext ? null : buildBudgetedContext(updatedMessages.slice(0, -1), budget);
+    const historyForLLM = (context?.sent ?? [{ role: userMessage.role, content: userMessage.content }]).map((m, i, all) =>
+      // Long pasted material in the question being asked is marked as data, not instructions (§4).
+      i === all.length - 1 && m.role === 'user' ? { ...m, content: spotlightUserContent(m.content) } : m
+    );
+
+    // Kept with the answer so an admin can see exactly what went out (§8).
+    const contextReport: ContextReport = {
+      mode: serverContext ? 'server' : 'app',
+      messagesSent: historyForLLM.length,
+      usedTokens: context?.usedTokens ?? 0,
+      budgetTokens: budget,
+      contextTokens: profile.contextTokens ?? DEFAULT_CONTEXT_TOKENS,
+      droppedForBudget: context?.droppedForBudget ?? 0,
+      droppedAsNoise: context?.droppedAsNoise ?? 0,
+      maxTokens: answerLength.maxTokens,
+      systemPrompt,
+    };
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === targetSessionId
+          ? { ...sess, messages: sess.messages.map((msg) => (msg.id === assistantMessageId ? { ...msg, contextReport } : msg)) }
+          : sess
+      ),
+    }));
+
+    const requestStartedAt = Date.now();
+    let reasoning = '';
+    let reasoningMs = 0;
 
     const smoothBuffer = new SmoothStreamBuffer((displayedContent, isDone, stats) => {
       set((s) => {
@@ -285,14 +326,31 @@ export const useChatStore = createStore<ChatState>((set, get) => ({
         {
           messages: historyForLLM,
           modelId: effectiveModelId,
-          systemPrompt: currentSession.systemPrompt || settings.aiConfig.systemPrompt,
+          systemPrompt,
           temperature: currentSession.temperature ?? settings.aiConfig.temperature,
-          maxTokens: settings.aiConfig.maxTokens,
+          maxTokens: answerLength.maxTokens,
           conversation: serverContext
             ? { conversationId: targetSessionId!, messageId: userMessage.id, replacesMessageId: options.replacesMessageId }
             : undefined,
         },
         (chunk: StreamChunk) => {
+          // Thinking is collected apart from the answer: shown collapsed, never sent back (§6).
+          if (chunk.reasoning) {
+            reasoning += chunk.reasoning;
+            reasoningMs = Date.now() - requestStartedAt;
+            set((s) => ({
+              sessions: s.sessions.map((sess) =>
+                sess.id === targetSessionId
+                  ? {
+                      ...sess,
+                      messages: sess.messages.map((msg) =>
+                        msg.id === assistantMessageId ? { ...msg, reasoning, reasoningMs } : msg
+                      ),
+                    }
+                  : sess
+              ),
+            }));
+          }
           smoothBuffer.append(chunk.content, chunk.done, chunk.stats);
         },
         (err: Error) => {

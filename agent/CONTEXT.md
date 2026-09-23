@@ -66,7 +66,9 @@ src/
   services/ai/
     base.ts                  LLMProvider interface (generateStream)
     modelProfiles.ts         Profile rules + resolveModelTarget(profile, config) → demo | live | unconfigured (CHAT-006)
-    context.ts               What the model is sent: cleanHistory/buildAppContext (app-managed) vs latest message + ids (server-managed)
+    context.ts               What the model is sent: cleanHistory + token budget (app-managed) vs latest message + ids (server-managed)
+    prompt.ts                System message: platform rules → persona (resolved live) → answer length; <user_content> spotlighting
+    reasoning.ts             Splits inline <think> blocks out of a stream, so thinking never lands in the answer or the history
     providerRegistry.ts      getProvider(target, config): mock vs CustomAPIProvider
     mockProvider.ts          Canned streaming responses (no backend needed)
     mockCodeSamples.ts       Demo code answers per language + review samples with deliberate problems
@@ -110,7 +112,7 @@ src/
   hooks/useMediaQuery.ts     useMediaQuery / useIsMobile(768)
   hooks/useResolvedTheme.ts  useIsDarkTheme()
   hooks/useShortcuts.ts      App-wide keyboard shortcuts + SHORTCUTS table (shown in the ? sheet)
-  utils/                     dateGroups, history (conversation memory), drafts (per-conversation composer text),
+  utils/                     dateGroups, drafts (per-conversation composer text),
                              keyboard (isMac, isTypingTarget, list arrow keys), speech (screen-reader excerpts)
   hooks/useDialog.ts         Modal keyboard behaviour: Esc closes the topmost dialog, focus in/out, Tab trap
   styles/                    tokens.css (design tokens incl. --space-1..8, light/dark), global.css,

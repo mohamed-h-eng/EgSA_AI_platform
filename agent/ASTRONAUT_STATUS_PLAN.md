@@ -130,4 +130,5 @@ The three poses in `pet.jpg` map to the three stages of an answer. The character
   - Removed the `key` on the dock and on `Astronaut`.
   - The `dockOut` fade is limited to the passive Copilot dock.
   - Verified by driving the chat store through thinking → writing → error → idle: the same DOM element stayed at opacity 1 with the astronaut present throughout.
+- **Follow-up (2026-09-23):** the per-conversation switch is back, inside Settings → Intelligence: each profile's *Edit* panel has **Use in the open conversation** (disabled while streaming, and for the profile already in use). So the behaviour change noted above no longer applies.
 

@@ -3,7 +3,9 @@ import { PlusIcon, RefreshCwIcon } from '../ui/Icons';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useRoleStore } from '../../stores/roleStore';
 import { fetchAvailableModels } from '../../services/ai/apiProvider';
-import { ROLES, ROLE_LABEL, canRemoveProfile, resolveModelTarget } from '../../services/ai/modelProfiles';
+import { useChatStore } from '../../stores/chatStore';
+import { DEFAULT_CONTEXT_TOKENS } from '../../services/ai/context';
+import { ROLES, ROLE_LABEL, canRemoveProfile, resolveModelTarget, resolveProfile } from '../../services/ai/modelProfiles';
 import type { ModelProfile, ModelRole } from '../../types';
 import { GroupedSection } from './SettingsControls';
 
@@ -75,6 +77,12 @@ const ProfileEditor: React.FC<{ profile: ModelProfile; onRemoved: () => void }> 
   const updateProfile = useSettingsStore((s) => s.updateProfile);
   const removeProfile = useSettingsStore((s) => s.removeProfile);
   const setDefaultProfile = useSettingsStore((s) => s.setDefaultProfile);
+  // The open conversation can be switched to this profile from here, since the header picker went
+  // away (ASTRONAUT_STATUS_PLAN §12); "make default" only affects new conversations.
+  const activeSessionId = useChatStore((s) => s.activeSessionId);
+  const sessionProfileId = useChatStore((s) => s.sessions.find((x) => x.id === s.activeSessionId)?.profileId);
+  const setSessionProfile = useChatStore((s) => s.setSessionProfile);
+  const isStreaming = useChatStore((s) => s.isStreaming);
   const uid = useId();
   const [models, setModels] = useState<string[]>([]);
   const [loadState, setLoadState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -83,6 +91,7 @@ const ProfileEditor: React.FC<{ profile: ModelProfile; onRemoved: () => void }> 
   const removable = canRemoveProfile(profiles, profile.id);
   // Changing role must not leave the old role without a profile (CHAT-006).
   const roleLocked = !canRemoveProfile(profiles, profile.id);
+  const usedHere = !!activeSessionId && resolveProfile(profiles, sessionProfileId).id === profile.id;
 
   const loadModels = async () => {
     if (!endpoint) return;
@@ -155,6 +164,22 @@ const ProfileEditor: React.FC<{ profile: ModelProfile; onRemoved: () => void }> 
         <span className="field-help">Only for a model served on a different machine; the API key and proxy settings are shared.</span>
       </label>
 
+      <label className="field">
+        <span className="field-label">Context size (tokens)</span>
+        <input
+          type="number"
+          min={1024}
+          step={1024}
+          value={profile.contextTokens ?? DEFAULT_CONTEXT_TOKENS}
+          onChange={(e) => updateProfile(profile.id, { contextTokens: Math.max(1024, parseInt(e.target.value, 10) || DEFAULT_CONTEXT_TOKENS) })}
+          style={{ fontFamily: 'var(--font-mono)', maxWidth: '10rem' }}
+        />
+        <span className="field-help">
+          What the server really allows. History is filled newest-first until it's spent. On Ollama set OLLAMA_CONTEXT_LENGTH or the
+          Modelfile num_ctx — the /v1 endpoint ignores per-request values and silently drops the oldest messages.
+        </span>
+      </label>
+
       <div className="field">
         <span className="field-label" id={`${uid}-context`}>Conversation context</span>
         <div className="segmented" role="radiogroup" aria-labelledby={`${uid}-context`}>
@@ -188,6 +213,17 @@ const ProfileEditor: React.FC<{ profile: ModelProfile; onRemoved: () => void }> 
         <button type="button" className="text-action" disabled={profile.isDefault} onClick={() => setDefaultProfile(profile.id)}>
           {profile.isDefault ? `Default ${ROLE_LABEL[profile.role].toLowerCase()} profile` : `Make default ${ROLE_LABEL[profile.role].toLowerCase()} profile`}
         </button>
+        {activeSessionId && (
+          <button
+            type="button"
+            className="text-action"
+            disabled={usedHere || isStreaming}
+            title={isStreaming ? 'Wait for the current answer to finish' : 'Applies from the next answer in the open conversation'}
+            onClick={() => setSessionProfile(activeSessionId, profile.id)}
+          >
+            {usedHere ? 'Used in the open conversation' : 'Use in the open conversation'}
+          </button>
+        )}
         <button
           type="button"
           className="text-action"

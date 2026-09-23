@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { dateGroupOf, groupByDate } from './dateGroups';
-import { historyWindowStart, trimHistory } from './history';
 import { speakableExcerpt } from './speech';
 
 const NOW = new Date(2026, 8, 22, 15, 0).getTime();
@@ -22,39 +21,6 @@ describe('dateGroupOf', () => {
     expect(groups[0].items.map((i) => i.t)).toEqual([daysAgo(0, 14), daysAgo(0, 9)]);
   });
 });
-
-describe('conversation memory', () => {
-  const convo = (n: number) =>
-    Array.from({ length: n }, (_, i) => ({ role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant' }));
-
-  it('sends everything when the conversation is short', () => {
-    expect(trimHistory(convo(5), 30)).toHaveLength(5);
-    expect(historyWindowStart(convo(6), 30)).toBe(0);
-  });
-
-  it('keeps the last messages and starts on a user message', () => {
-    const trimmed = trimHistory(convo(41), 30); // ends with a user message
-    expect(trimmed[0].role).toBe('user');
-    expect(trimmed.length).toBeLessThanOrEqual(30);
-    // The newest message (the question being asked) is always included.
-    expect(trimmed[trimmed.length - 1].role).toBe('user');
-    expect(trimmed.length).toBe(29); // last 30, minus the leading assistant message
-  });
-
-  it('marks where the model context starts for the latest answer', () => {
-    const messages = convo(42); // 21 exchanges, last is the assistant's answer
-    const start = historyWindowStart(messages, 30);
-    expect(start).toBeGreaterThan(0);
-    expect(messages[start].role).toBe('user');
-    expect(messages.length - 1 - start).toBeLessThanOrEqual(30);
-  });
-
-  it('treats a non-positive limit as unlimited', () => {
-    expect(trimHistory(convo(50), 0)).toHaveLength(50);
-    expect(historyWindowStart(convo(50), 0)).toBe(0);
-  });
-});
-
 
 describe('speakableExcerpt', () => {
   it('strips Markdown, code and citation markers for screen readers', () => {

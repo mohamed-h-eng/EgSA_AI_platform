@@ -24,6 +24,12 @@ export interface ChatMessage {
   stats?: TokenStats;
   error?: string;
   direction?: TextDirection;
+  /** Reasoning-model thinking: shown collapsed, never copied, never sent back as history (§6). */
+  reasoning?: string;
+  /** How long the model spent thinking before the answer started, in ms. */
+  reasoningMs?: number;
+  /** Admin debugging: what was actually sent for this answer (PROMPTING_CONTEXT_PLAN §8). */
+  contextReport?: ContextReport;
 }
 
 export interface ConversationSession {
@@ -75,6 +81,11 @@ export interface ModelProfile {
    * and message ids, for a gateway that stores conversations. Default 'app'.
    */
   contextMode?: 'app' | 'server';
+  /**
+   * The context window the server really has, in tokens (default 8192). History is filled
+   * newest-first until this is spent, minus the answer and the system prompt.
+   */
+  contextTokens?: number;
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -99,12 +110,17 @@ export interface UserPreferences {
   arabicFont: ArabicFontOption;
 }
 
+/** How long answers should be (PROMPTING_CONTEXT_PLAN §5): prompt line + reply token budget. */
+export type AnswerLength = 'concise' | 'balanced' | 'detailed';
+
 export interface AIConfiguration {
   activePersonaId: string;
+  /** Custom instructions that replace the persona's when set. */
   systemPrompt: string;
+  answerLength?: AnswerLength;
   temperature: number;
   maxTokens: number;
-  /** Conversation memory: how many recent messages are sent to the model (0 = all). */
+  /** @deprecated Replaced by the per-profile token budget (PROMPTING_CONTEXT_PLAN §5). */
   historyLimit: number;
   streamResponse: boolean;
   providerType: 'mock' | 'custom-api' | 'openai-compatible';
@@ -115,8 +131,26 @@ export interface AIConfiguration {
   useProxy?: boolean;
 }
 
+/** What the model was sent for one answer, for the admin "What the model saw" panel (§8). */
+export interface ContextReport {
+  /** 'app': this app sent the history. 'server': the gateway keeps it, so only the question went. */
+  mode: 'app' | 'server';
+  messagesSent: number;
+  usedTokens: number;
+  budgetTokens: number;
+  contextTokens: number;
+  /** Turns left out because the budget ran out. */
+  droppedForBudget: number;
+  /** Turns removed as noise: failed, empty or superseded. */
+  droppedAsNoise: number;
+  maxTokens: number;
+  systemPrompt: string;
+}
+
 export interface StreamChunk {
   content: string;
+  /** Reasoning-model thinking, kept out of the answer (PROMPTING_CONTEXT_PLAN §6). */
+  reasoning?: string;
   done: boolean;
   stats?: TokenStats;
 }
